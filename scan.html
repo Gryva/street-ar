@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Street AR – Skeniraj</title>
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    a-scene { position: fixed; inset: 0; }
+
+    #status {
+      position: absolute;
+      top: 8px; left: 10px;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 11px;
+      border-radius: 4px;
+      z-index: 20;
+    }
+
+    /* Zatamnjenje ostatka kamere kad je neki target aktivan */
+    #dimmer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 15;
+    }
+    #dimmer.active { opacity: 1; }
+
+    #navbar-placeholder {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Skeniraj jedan od 4 postera/grafita...</div>
+  <div id="dimmer"></div>
+
+  <!-- AR SCENA (prazna, markere dodajemo iz JS-a) -->
+  <a-scene
+    id="scene"
+    mindar-image="imageTargetSrc: ./mind_files/targets.mind; filterMinCF:0.0001; filterBeta: 0.001;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  </a-scene>
+
+  <!-- NAVBAR -->
+  <div id="navbar-placeholder"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const dimmer = document.getElementById("dimmer");
+    const scene = document.getElementById("scene");
+
+    // Ovdje definiraš "bazu" – po redoslijedu kojim si slike ubacio u compiler
+    const GRAFFITI_DB = [
+      {
+        title: "Lunar – Bengez & Lindgreen",
+        subtitle: "Autor: Lunar"
+      },
+      {
+        title: "Lunar – Sweet 16",
+        subtitle: "Autor: Lunar"
+      },
+      {
+        title: "Manemei – Logo",
+        subtitle: "Autor: Manemei • Motiv: logo"
+      },
+      {
+        title: "Manemei – Svaka čast",
+        subtitle: "Autor: Manemei • Rad: Svaka čast"
+      }
+    ];
+
+    const markers = [];
+
+    // Dinamički generiramo markere i okvire za svaki targetIndex
+    GRAFFITI_DB.forEach((data, index) => {
+      const marker = document.createElement("a-entity");
+      marker.setAttribute("id", `marker-${index}`);
+      marker.setAttribute("mindar-image-target", `targetIndex: ${index}`);
+
+      // OKVIR OKO RADA (4 trake, unutrašnjost je prazna)
+      const frame = document.createElement("a-entity");
+      frame.setAttribute("position", "0 0 0");
+      frame.innerHTML = `
+        <a-plane width="1.8" height="0.08" color="#ffffff" opacity="0.85" position="0 0.75 0"></a-plane>
+        <a-plane width="1.8" height="0.08" color="#ffffff" opacity="0.85" position="0 -0.75 0"></a-plane>
+        <a-plane width="0.08" height="1.6" color="#ffffff" opacity="0.85" position="-0.9 0 0"></a-plane>
+        <a-plane width="0.08" height="1.6" color="#ffffff" opacity="0.85" position="0.9 0 0"></a-plane>
+      `;
+      marker.appendChild(frame);
+
+      // TEKST ISPOD OKVIRA (rad ostaje čist)
+      const textBlock = document.createElement("a-entity");
+      textBlock.setAttribute("position", "0 -1.1 0");
+      textBlock.innerHTML = `
+        <a-plane width="1.8" height="0.45" color="#000000" opacity="0.9"></a-plane>
+        <a-text value="${data.title}"
+                color="#ffffff" align="center" width="3.2"
+                position="0 0.12 0.01"></a-text>
+        <a-text value="${data.subtitle}"
+                color="#cccccc" align="center" width="3.2"
+                position="0 -0.02 0.01" wrap-count="36"></a-text>
+      `;
+      marker.appendChild(textBlock);
+
+      scene.appendChild(marker);
+      markers.push(marker);
+    });
+
+    // Logika za dimmer i status
+    let anyVisible = false;
+
+    function updateDimmer() {
+      if (anyVisible) dimmer.classList.add("active");
+      else dimmer.classList.remove("active");
+    }
+
+    markers.forEach((marker, index) => {
+      marker.addEventListener("targetFound", () => {
+        anyVisible = true;
+        statusEl.textContent = `Prepoznat target #${index}`;
+        updateDimmer();
+      });
+      marker.addEventListener("targetLost", () => {
+        // provjeri je li još koji target vidljiv
+        anyVisible = markers.some(m => m.components["mindar-image-target"]?.__targetVisible);
+        if (!anyVisible) {
+          statusEl.textContent = "Skeniraj jedan od 4 postera/grafita...";
+        }
+        updateDimmer();
+      });
+    });
+
+    // Navbar
+    fetch("navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("navbar-placeholder").innerHTML = html;
+        const current = "scan";
+        document
+          .querySelectorAll("#navbar .nav-item")
+          .forEach(item => {
+            if (item.dataset.tab === current) item.classList.add("active");
+          });
+      });
+  </script>
+</body>
+</html>
