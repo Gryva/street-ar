@@ -1,16 +1,15 @@
-// 1) OVO PROMIJENI NA SVOJE
-const supabaseUrl = 'https://gppxvrknlnqzlzhcmstw.supabase.co';
-const supabaseAnonKey = 'sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n';
+(() => {
+  const supabaseUrl = 'https://gppxvrknlnqzlzhcmstw.supabase.co';
+  const supabaseAnonKey = 'sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n';
 
-// 2) Inicijalizacija Supabase klijenta
-const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-const logEl = document.getElementById('log');
-const log = (msg) => {
-  logEl.textContent += msg + '\n';
-};
+  const logEl = document.getElementById('log');
+  const log = (msg) => {
+    logEl.textContent += msg + '\n';
+  };
 
-async function filesToImages(files) {
+  async function filesToImages(files) {
   const images = [];
   for (const file of files) {
     const url = URL.createObjectURL(file);
@@ -80,3 +79,4 @@ document.getElementById('generate').addEventListener('click', () => {
     log('Fatal error: ' + e.message);
   });
 });
+})();
