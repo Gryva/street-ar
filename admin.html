@@ -2,22 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Target Generator</title>
+  <title>AR Admin – upload slike</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- MindAR core (s Compilerom) -->
-  <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@0.4.2/dist/mindar.prod-min.js"></script>
-
   <!-- Supabase client -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 1rem; }
+    #log { background: #111; color: #0f0; padding: 0.5rem; white-space: pre-wrap; }
+  </style>
 </head>
 <body>
-  <h1>Upload target images</h1>
+  <h1>Upload target images u Supabase</h1>
 
+  <p>Odaberi više slika (plakati, coveri...):</p>
   <input type="file" id="files" multiple accept="image/*" />
-  <button id="generate">Generate &amp; upload .mind</button>
+  <button id="upload">Upload u Supabase</button>
 
+  <h2>Log</h2>
   <pre id="log"></pre>
+
+  <h2>Public URL-ovi uploadanih slika</h2>
+  <ul id="urls"></ul>
 
   <script src="admin.js"></script>
 </body>
