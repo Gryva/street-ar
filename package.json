@@ -1,0 +1,26 @@
+{
+  "name": "mojarproject",
+  "version": "1.0.0",
+  "description": "",
+  "main": "admin.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:targets": "node buildTargets.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gryva/street-ar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gryva/street-ar/issues"
+  },
+  "homepage": "https://github.com/Gryva/street-ar#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pošalji svoj rad</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Supabase JS (browser UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        padding: 16px;
+        padding-bottom: 80px; /* prostor za navbar dolje */
+        max-width: 600px;
+        margin: 0 auto;
+        background: #000;
+        color: #fff;
+      }
+      h1 { margin-top: 0; }
+      label { display: block; margin-top: 12px; font-weight: 500; }
+      input, select, textarea {
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+        box-sizing: border-box;
+        border-radius: 4px;
+        border: 1px solid #333;
+        background: #111;
+        color: #fff;
+      }
+      button {
+        margin-top: 16px;
+        padding: 10px 16px;
+        font-size: 16px;
+        border-radius: 4px;
+        border: 1px solid #444;
+        background: #1a1a1a;
+        color: #fff;
+        cursor: pointer;
+      }
+      button.small {
+        font-size: 13px;
+        padding: 6px 10px;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      #status { margin-top: 16px; white-space: pre-line; font-size: 13px; }
+
+      #crop-container {
+        margin-top: 12px;
+        width: 100%;
+        max-width: 100%;
+        aspect-ratio: 4 / 3;
+        position: relative;
+        background: #111;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #333;
+        display: none;
+      }
+      #crop-image {
+        position: absolute;
+        top: 0; left: 0;
+        transform-origin: center center;
+        touch-action: none;
+      }
+
+      #preview {
+        margin-top: 12px;
+        max-width: 100%;
+        border: 1px solid #333;
+        border-radius: 4px;
+        display: none;
+      }
+
+      #loc-info { font-size: 12px; margin-top: 4px; opacity: 0.8; }
+
+      #form-fields { display: none; }
+
+      #navbar-placeholder {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 50;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Pošalji svoj rad u AR izložbu</h1>
+    <p>Na lokaciji si rada. Prvo uslikaj rad, izreži ga (crop), zatim ispuni podatke i pošalji.</p>
+
+    <!-- 1. Slika + crop -->
+    <label id="image-label">
+      Slika rada (kamerom na lokaciji)
+      <input
+        type="file"
+        id="image"
+        accept="image/*"
+        capture="environment"
+      />
+    </label>
+
+    <div id="crop-container">
+      <img id="crop-image" alt="Za crop" />
+    </div>
+
+    <button type="button" id="confirm-crop-btn" class="small" style="display:none;">
+      Potvrdi crop i nastavi
+    </button>
+
+    <img id="preview" alt="Pregled izrezanog rada" />
+
+    <!-- 2. Forma s podacima (pojavljuje se tek nakon cropa) -->
+    <form id="submission-form">
+      <div id="form-fields">
+        <label>
+          Ime autora rada
+          <input type="text" id="artist_name" required />
+        </label>
+
+        <label>
+          Ime rada
+          <input type="text" id="title" required />
+        </label>
+
+        <label>
+          Tip rada
+          <select id="type" required>
+            <option value="">Odaberi...</option>
+            <option value="fotografija">Fotografija</option>
+            <option value="crtez">Crtež</option>
+            <option value="grafit">Grafit</option>
+            <option value="plakat">Plakat</option>
+            <option value="ostalo">Ostalo</option>
+          </select>
+        </label>
+
+        <label>
+          Kratki opis (neobavezno)
+          <textarea id="description" rows="3" placeholder="Npr. što rad predstavlja, kontekst, zanimljivost..."></textarea>
+        </label>
+
+        <label>
+          Tvoje ime ili nadimak (neobavezno)
+          <input type="text" id="submitted_by" />
+        </label>
+
+        <label>
+          Lokacija rada (GPS)
+          <button type="button" id="loc-btn" class="small">Dohvati moju lokaciju</button>
+          <div id="loc-info">Lokacija još nije dohvaćena.</div>
+        </label>
+
+        <button type="submit" id="submit-btn">Pošalji rad</button>
+      </div>
+    </form>
+
+    <div id="status"></div>
+
+    <div id="navbar-placeholder"></div>
+
+    <script>
+      // 1. Supabase client
+      const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
+      const SUPABASE_PUBLISHABLE_KEY =
+        "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+      const { createClient } = supabase;
+      const supabaseClient = createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+      );
+
+      const form = document.getElementById("submission-form");
+      const statusEl = document.getElementById("status");
+      const locBtn = document.getElementById("loc-btn");
+      const locInfo = document.getElementById("loc-info");
+      const imageInput = document.getElementById("image");
+      const imageLabel = document.getElementById("image-label");
+      const cropContainer = document.getElementById("crop-container");
+      const cropImage = document.getElementById("crop-image");
+      const confirmCropBtn = document.getElementById("confirm-crop-btn");
+      const previewImg = document.getElementById("preview");
+      const submitBtn = document.getElementById("submit-btn");
+      const formFields = document.getElementById("form-fields");
+
+      let currentLat = null;
+      let currentLon = null;
+      let croppedFile = null;
+      let imgFromScan = false; // flag: slika iz scana ili iz file inputa
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+        console.log(msg);
+      }
+
+      // ---------- Crop logika (jednostavan pan, fiksni okvir 4:3) ----------
+
+      let imgScale = 1;
+      let imgOffsetX = 0;
+      let imgOffsetY = 0;
+      let isDragging = false;
+      let lastX = 0;
+      let lastY = 0;
+      let imgNaturalWidth = 0;
+      let imgNaturalHeight = 0;
+
+      function resetCropState() {
+        imgScale = 1;
+        imgOffsetX = 0;
+        imgOffsetY = 0;
+        isDragging = false;
+      }
+
+      imageInput.addEventListener("change", () => {
+        const file = imageInput.files[0];
+        if (!file) {
+          cropContainer.style.display = "none";
+          confirmCropBtn.style.display = "none";
+          previewImg.style.display = "none";
+          formFields.style.display = "none";
+          croppedFile = null;
+          imgFromScan = false;
+          return;
+        }
+
+        const url = URL.createObjectURL(file);
+        imgFromScan = false;
+        showImageForCrop(url);
+      });
+
+      function showImageForCrop(src) {
+        cropImage.src = src;
+        cropContainer.style.display = "block";
+        confirmCropBtn.style.display = "inline-block";
+        previewImg.style.display = "none";
+        formFields.style.display = "none";
+        croppedFile = null;
+        setStatus("Povuci sliku da namjestiš kadar, zatim potvrdi crop.");
+
+        resetCropState();
+
+        cropImage.onload = () => {
+          imgNaturalWidth = cropImage.naturalWidth;
+          imgNaturalHeight = cropImage.naturalHeight;
+          const containerRect = cropContainer.getBoundingClientRect();
+          const scale = Math.max(
+            containerRect.width / imgNaturalWidth,
+            containerRect.height / imgNaturalHeight
+          );
+          imgScale = scale;
+          imgOffsetX = 0;
+          imgOffsetY = 0;
+          updateCropImageTransform();
+        };
+      }
+
+      function updateCropImageTransform() {
+        const containerRect = cropContainer.getBoundingClientRect();
+        cropImage.style.width = imgNaturalWidth * imgScale + "px";
+        cropImage.style.height = imgNaturalHeight * imgScale + "px";
+        const x = containerRect.width / 2 + imgOffsetX;
+        const y = containerRect.height / 2 + imgOffsetY;
+        cropImage.style.left = x - (imgNaturalWidth * imgScale) / 2 + "px";
+        cropImage.style.top = y - (imgNaturalHeight * imgScale) / 2 + "px";
+      }
+
+      function startDrag(x, y) {
+        isDragging = true;
+        lastX = x;
+        lastY = y;
+      }
+      function moveDrag(x, y) {
+        if (!isDragging) return;
+        const dx = x - lastX;
+        const dy = y - lastY;
+        lastX = x;
+        lastY = y;
+        imgOffsetX += dx;
+        imgOffsetY += dy;
+        updateCropImageTransform();
+      }
+      function endDrag() {
+        isDragging = false;
+      }
+
+      cropContainer.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener("mousemove", (e) => moveDrag(e.clientX, e.clientY));
+      window.addEventListener("mouseup", endDrag);
+
+      cropContainer.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        startDrag(t.clientX, t.clientY);
+      });
+      cropContainer.addEventListener("touchmove", (e) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        moveDrag(t.clientX, t.clientY);
+      });
+      cropContainer.addEventListener("touchend", endDrag);
+      cropContainer.addEventListener("touchcancel", endDrag);
+
+      confirmCropBtn.addEventListener("click", async () => {
+        // sad dopuštamo crop i kad nema imageInput.files[0], ako postoji cropImage.src
+        if (!cropImage.src) return;
+
+        const containerRect = cropContainer.getBoundingClientRect();
+        const canvas = document.createElement("canvas");
+        canvas.width = containerRect.width;
+        canvas.height = containerRect.height;
+        const ctx = canvas.getContext("2d");
+
+        const drawWidth = imgNaturalWidth * imgScale;
+        const drawHeight = imgNaturalHeight * imgScale;
+
+        const drawX =
+          containerRect.width / 2 + imgOffsetX - drawWidth / 2;
+        const drawY =
+          containerRect.height / 2 + imgOffsetY - drawHeight / 2;
+
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(
+          cropImage,
+          drawX,
+          drawY,
+          drawWidth,
+          drawHeight
+        );
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+
+            // ako imamo originalni file iz inputa, koristi njegovo ime,
+            // inače (slika iz scana) daj default ime i oznaci da vise nema pending slike
+            let filename = "scan-crop.jpg";
+            if (imageInput.files[0]) {
+              filename = imageInput.files[0].name || "upload.jpg";
+            }
+
+            croppedFile = new File([blob], filename, {
+              type: "image/jpeg",
+            });
+
+            // ako je slika došla iz scana, obriši je iz localStorage
+            if (imgFromScan) {
+              localStorage.removeItem("street-ar-pending-image");
+            }
+
+            const previewUrl = URL.createObjectURL(blob);
+            previewImg.src = previewUrl;
+            previewImg.style.display = "block";
+            formFields.style.display = "block";
+            setStatus("Crop potvrđen. Ispuni podatke o radu i pošalji.");
+          },
+          "image/jpeg",
+          0.9
+        );
+      });
+
+      // provjeri je li skener ostavio sliku
+      const pendingImageDataUrl = localStorage.getItem("street-ar-pending-image");
+      if (pendingImageDataUrl) {
+        imgFromScan = true;
+        // sakrij manualni file input kad dolazimo iz scana
+        imageLabel.style.display = "none";
+        showImageForCrop(pendingImageDataUrl);
+      }
+
+      // 3. Dohvat lokacije
+      locBtn.addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          locInfo.textContent = "Ovaj uređaj ne podržava GPS.";
+          return;
+        }
+        locInfo.textContent = "Dohvaćam lokaciju, pričekaj...";
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            currentLat = pos.coords.latitude;
+            currentLon = pos.coords.longitude;
+            locInfo.textContent =
+              "Lokacija dohvaćena ✔\nŠirina: " +
+              currentLat.toFixed(6) +
+              "\nDuljina: " +
+              currentLon.toFixed(6);
+          },
+          (err) => {
+            console.error(err);
+            locInfo.textContent =
+              "Ne mogu dohvatiti lokaciju (" +
+              err.message +
+              "). Pokušaj ponovno i provjeri dopuštenja.";
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+
+      // 4. Upload slike u Storage (koristi CROPPANI file)
+      async function uploadImage(file) {
+        const ext = (file.name && file.name.split(".").pop()) || "jpg";
+        const fileName = crypto.randomUUID() + "." + ext;
+        const path = "submissions/" + fileName;
+
+        const { data, error } = await supabaseClient.storage
+          .from("submissions")
+          .upload(path, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        return data.path; // spremamo u image_path
+      }
+
+      // 5. Submit forme
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setStatus("");
+
+        if (!croppedFile) {
+          setStatus("Prvo uslikaj rad i potvrdi crop.");
+          return;
+        }
+
+        const artistName = document
+          .getElementById("artist_name")
+          .value.trim();
+        const title = document.getElementById("title").value.trim();
+        const type = document.getElementById("type").value;
+        const description =
+          document.getElementById("description").value.trim() || null;
+        const submittedBy =
+          document.getElementById("submitted_by").value.trim() || null;
+
+        if (!artistName || !title || !type) {
+          setStatus(
+            "Molim te ispuni obavezna polja (autor, ime rada, tip)."
+          );
+          return;
+        }
+
+        setStatus("Učitavam sliku, pričekaj...");
+        submitBtn.disabled = true;
+
+        try {
+          const imagePath = await uploadImage(croppedFile);
+
+          setStatus("Spremam podatke o radu...");
+
+          const { error } = await supabaseClient
+            .from("artwork_submissions")
+            .insert({
+              artist_name: artistName,
+              title,
+              type,
+              description,
+              latitude: currentLat,
+              longitude: currentLon,
+              submitted_by: submittedBy,
+              image_path: imagePath,
+              status: "pending",
+            });
+
+          if (error) {
+            console.error(error);
+            setStatus(
+              "Dogodila se greška pri spremanju rada: " +
+                error.message
+            );
+            submitBtn.disabled = false;
+            return;
+          }
+
+          form.reset();
+          croppedFile = null;
+          cropContainer.style.display = "none";
+          confirmCropBtn.style.display = "none";
+          previewImg.style.display = "none";
+          formFields.style.display = "none";
+          currentLat = null;
+          currentLon = null;
+          locInfo.textContent = "Lokacija još nije dohvaćena.";
+
+          setStatus(
+            "Hvala ti! Tvoj rad je poslan i čeka odobrenje za AR izložbu."
+          );
+          submitBtn.disabled = false;
+        } catch (err) {
+          console.error(err);
+          setStatus("Dogodila se greška: " + err.message);
+          submitBtn.disabled = false;
+        }
+      });
+
+      // Navbar
+      fetch("navbar.html")
+        .then((res) => res.text())
+        .then((html) => {
+          document.getElementById("navbar-placeholder").innerHTML = html;
+          const current = "submit";
+          document
+            .querySelectorAll("#navbar .nav-item")
+            .forEach((item) => {
+              if (item.dataset.tab === current)
+                item.classList.add("active");
+            });
+        });
+    </script>
+  </body>
+</html>

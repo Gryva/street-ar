@@ -44,11 +44,51 @@
       left: 0; right: 0; bottom: 0;
       z-index: 50;
     }
+
+    /* Panel s akcijama kad nema markera */
+    #no-marker-actions {
+      position: fixed;
+      left: 0; right: 0;
+      bottom: 60px; /* iznad navbara */
+      padding: 10px 16px;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      font-size: 13px;
+      z-index: 40;
+      display: none;
+    }
+    #no-marker-actions button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #no-marker-actions button.secondary {
+      background: transparent;
+    }
   </style>
 </head>
 <body>
-  <div id="status">Skeniraj jedan od 4 postera/grafita...</div>
+  <div id="status">Nismo uspjeli pronaći marker.</div>
   <div id="dimmer"></div>
+
+  <div id="no-marker-actions">
+    <div>Nismo uspjeli pronaći marker.</div>
+    <button id="retry-btn" class="secondary">Pokušaj ponovno skenirati</button>
+    <button id="new-submit-btn">Slikaj rad za novi unos</button>
+    <input
+      type="file"
+      id="scan-capture-input"
+      accept="image/*"
+      capture="environment"
+      style="display:none;"
+    />
+  </div>
 
   <!-- AR SCENA (prazna, markere dodajemo iz JS-a) -->
   <a-scene
@@ -69,25 +109,17 @@
     const statusEl = document.getElementById("status");
     const dimmer = document.getElementById("dimmer");
     const scene = document.getElementById("scene");
+    const noMarkerActions = document.getElementById("no-marker-actions");
+    const retryBtn = document.getElementById("retry-btn");
+    const newSubmitBtn = document.getElementById("new-submit-btn");
+    const captureInput = document.getElementById("scan-capture-input");
 
-    // Ovdje definiraš "bazu" – po redoslijedu kojim si slike ubacio u compiler
+    // Baza targeta (redoslijed kao u MindAR compileru)
     const GRAFFITI_DB = [
-      {
-        title: "Lunar – Bengez & Lindgreen",
-        subtitle: "Autor: Lunar"
-      },
-      {
-        title: "Lunar – Sweet 16",
-        subtitle: "Autor: Lunar"
-      },
-      {
-        title: "Manemei – Logo",
-        subtitle: "Autor: Manemei • Motiv: logo"
-      },
-      {
-        title: "Manemei – Svaka čast",
-        subtitle: "Autor: Manemei • Rad: Svaka čast"
-      }
+      { title: "Lunar – Bengez & Lindgreen", subtitle: "Autor: Lunar" },
+      { title: "Lunar – Sweet 16",           subtitle: "Autor: Lunar" },
+      { title: "Manemei – Logo",             subtitle: "Autor: Manemei • Motiv: logo" },
+      { title: "Manemei – Svaka čast",       subtitle: "Autor: Manemei • Rad: Svaka čast" },
     ];
 
     const markers = [];
@@ -98,7 +130,6 @@
       marker.setAttribute("id", `marker-${index}`);
       marker.setAttribute("mindar-image-target", `targetIndex: ${index}`);
 
-      // OKVIR OKO RADA (4 trake, unutrašnjost je prazna)
       const frame = document.createElement("a-entity");
       frame.setAttribute("position", "0 0 0");
       frame.innerHTML = `
@@ -109,7 +140,6 @@
       `;
       marker.appendChild(frame);
 
-      // TEKST ISPOD OKVIRA (rad ostaje čist)
       const textBlock = document.createElement("a-entity");
       textBlock.setAttribute("position", "0 -1.1 0");
       textBlock.innerHTML = `
@@ -129,37 +159,82 @@
 
     // Logika za dimmer i status
     let anyVisible = false;
+    let markerEverDetected = false;
+    let fallbackTimerStarted = false;
 
     function updateDimmer() {
       if (anyVisible) dimmer.classList.add("active");
       else dimmer.classList.remove("active");
     }
 
+    function showNoMarkerActions() {
+      if (!markerEverDetected && noMarkerActions) {
+        noMarkerActions.style.display = "block";
+        statusEl.textContent = "Nismo uspjeli pronaći marker.";
+      }
+    }
+
     markers.forEach((marker, index) => {
       marker.addEventListener("targetFound", () => {
         anyVisible = true;
+        markerEverDetected = true;
+        if (noMarkerActions) noMarkerActions.style.display = "none";
         statusEl.textContent = `Prepoznat target #${index}`;
         updateDimmer();
       });
       marker.addEventListener("targetLost", () => {
-        // provjeri je li još koji target vidljiv
-        anyVisible = markers.some(m => m.components["mindar-image-target"]?.__targetVisible);
+        anyVisible = markers.some(
+          (m) => m.components["mindar-image-target"]?.__targetVisible
+        );
         if (!anyVisible) {
-          statusEl.textContent = "Skeniraj jedan od 4 postera/grafita...";
+          statusEl.textContent = "Nismo uspjeli pronaći marker.";
         }
         updateDimmer();
       });
     });
 
+    // 5 s nakon load-a, ako još ni jedan marker nije detektiran → pokaži akcije
+    if (!fallbackTimerStarted) {
+      fallbackTimerStarted = true;
+      setTimeout(showNoMarkerActions, 5000);
+    }
+
+    // Gumb "Pokušaj ponovno"
+    retryBtn.addEventListener("click", () => {
+      markerEverDetected = false;
+      if (noMarkerActions) noMarkerActions.style.display = "none";
+      statusEl.textContent = "Nismo uspjeli pronaći marker.";
+      setTimeout(showNoMarkerActions, 5000);
+    });
+
+    // Gumb "Slikaj rad za novi unos" – OTVORI KAMERU, NE ide odmah na submit
+    newSubmitBtn.addEventListener("click", () => {
+      captureInput.click();
+    });
+
+    // Kad korisnik uslika i potvrdi
+    captureInput.addEventListener("change", () => {
+      const file = captureInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result; // base64 slika
+        localStorage.setItem("street-ar-pending-image", dataUrl);
+        window.location.href = "submit.html";
+      };
+      reader.readAsDataURL(file);
+    });
+
     // Navbar
     fetch("navbar.html")
-      .then(res => res.text())
-      .then(html => {
+      .then((res) => res.text())
+      .then((html) => {
         document.getElementById("navbar-placeholder").innerHTML = html;
         const current = "scan";
         document
           .querySelectorAll("#navbar .nav-item")
-          .forEach(item => {
+          .forEach((item) => {
             if (item.dataset.tab === current) item.classList.add("active");
           });
       });

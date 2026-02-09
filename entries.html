@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Street AR – Vaši unosi</title>
+  <title>Street AR – Unosi</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     body {
       margin: 0;
@@ -19,70 +22,244 @@
       justify-content: space-between;
     }
     main {
-      padding: 10px 14px 20px;
+      padding: 10px 14px 60px;
       font-size: 13px;
+    }
+    h2 {
+      font-size: 14px;
+      margin: 12px 0 6px;
     }
     .entry {
       border-bottom: 1px solid #222;
       padding: 8px 0;
+      display: flex;
+      gap: 8px;
+    }
+    .thumb {
+      width: 64px;
+      height: 64px;
+      background: #111;
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     .title { font-weight: 600; font-size: 14px; }
     .meta { font-size: 12px; opacity: 0.8; }
     .desc { font-size: 12px; opacity: 0.9; margin-top: 3px; }
-    button {
-      padding: 4px 8px;
-      font-size: 12px;
+    .status-pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-pending { background: #664400; color: #ffdd99; }
+    .status-approved { background: #004d26; color: #8dffb9; }
+    .status-rejected { background: #4d0000; color: #ff9a9a; }
+
+    #navbar-placeholder {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 50;
+    }
+
+    #status { font-size: 12px; opacity: 0.7; margin-bottom: 6px; }
+
+    #my-name-input {
+      width: 100%;
+      padding: 6px 8px;
+      margin-top: 4px;
       border-radius: 4px;
-      border: 1px solid #444;
+      border: 1px solid #333;
       background: #111;
-      color: #eee;
-      cursor: pointer;
+      color: #fff;
+      box-sizing: border-box;
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
   <header>
-    <div>Vaši unosi</div>
+    <div>Unosi</div>
   </header>
+
   <main>
-    <div id="entries"></div>
+    <div id="status">Učitavam radove...</div>
+
+    <section id="my-entries-section">
+      <h2>Moji unosi</h2>
+      <label for="my-name-input">
+        Upiši isti nadimak / ime koje koristiš kod slanja radova:
+      </label>
+      <input id="my-name-input" type="text" placeholder="Npr. lunar_123" />
+      <div id="my-entries"></div>
+    </section>
+
+    <section id="all-entries-section">
+      <h2 id="all-title">Svi radovi</h2>
+      <div id="all-entries"></div>
+    </section>
   </main>
-
-  <script>
-    const container = document.getElementById("entries");
-    const saved = JSON.parse(localStorage.getItem("street-ar-new") || "[]");
-
-    if (!saved.length) {
-      container.innerHTML = '<p style="opacity:0.7;">Još nema spremljenih grafita.</p>';
-    } else {
-      saved.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "entry";
-        div.innerHTML = `
-          <div class="title">${item.title}</div>
-          <div class="meta">${item.artist || "nepoznat"} • ${new Date(item.createdAt).toLocaleString()}</div>
-          <div class="desc">${item.desc || ""}</div>
-        `;
-        container.appendChild(div);
-      });
-    }
-  </script>
 
   <div id="navbar-placeholder"></div>
 
-<script>
-  fetch("navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-placeholder").innerHTML = html;
-      const current = "entries";
-      document
-        .querySelectorAll("#navbar .nav-item")
-        .forEach(item => {
-          if (item.dataset.tab === current) item.classList.add("active");
-        });
-    });
-</script>
+  <script>
+    // 1. Supabase client
+    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
+    const statusEl = document.getElementById("status");
+    const myEntriesEl = document.getElementById("my-entries");
+    const allEntriesEl = document.getElementById("all-entries");
+    const myNameInput = document.getElementById("my-name-input");
+
+    let allSubmissions = [];
+
+    function statusPill(status) {
+      const s = (status || "pending").toLowerCase();
+      let cls = "status-pending";
+      let label = "PENDING";
+      if (s === "approved") {
+        cls = "status-approved";
+        label = "ODOBRENO";
+      } else if (s === "rejected") {
+        cls = "status-rejected";
+        label = "ODBIJENO";
+      }
+      return `<span class="status-pill ${cls}">${label}</span>`;
+    }
+
+    function renderLists() {
+      const name = myNameInput.value.trim().toLowerCase();
+
+      // Moji unosi
+      const mine = name
+        ? allSubmissions.filter(
+            (s) => (s.submitted_by || "").toLowerCase() === name
+          )
+        : [];
+
+      myEntriesEl.innerHTML = "";
+      if (!name) {
+        myEntriesEl.innerHTML =
+          "<p style='opacity:0.7; margin-top:6px;'>Upiši nadimak da vidiš svoje unose.</p>";
+      } else if (!mine.length) {
+        myEntriesEl.innerHTML =
+          "<p style='opacity:0.7; margin-top:6px;'>Nema unosa za taj nadimak.</p>";
+      } else {
+        mine.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "entry";
+          div.innerHTML = entryHtml(item);
+          myEntriesEl.appendChild(div);
+        });
+      }
+
+      // Svi radovi
+      allEntriesEl.innerHTML = "";
+      if (!allSubmissions.length) {
+        allEntriesEl.innerHTML =
+          "<p style='opacity:0.7;'>Još nema prijavljenih radova.</p>";
+      } else {
+        allSubmissions.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "entry";
+          div.innerHTML = entryHtml(item);
+          allEntriesEl.appendChild(div);
+        });
+      }
+    }
+
+    function entryHtml(item) {
+      const created = item.created_at
+        ? new Date(item.created_at).toLocaleString("hr-HR")
+        : "";
+      const artist = item.artist_name || "Nepoznat autor";
+      const submitter = item.submitted_by || "anonimno";
+      const desc = item.description || "";
+      const type = item.type || "nepoznato";
+
+      // public URL slike (submissions bucket)
+      const { data } = supabaseClient.storage
+        .from("submissions")
+        .getPublicUrl(item.image_path);
+      const imgUrl = data.publicUrl;
+
+      return `
+        <div class="thumb">
+          <img src="${imgUrl}" alt="${item.title || ""}" />
+        </div>
+        <div>
+          <div class="title">${item.title || "(bez naslova)"}</div>
+          <div class="meta">
+            ${artist} • tip: ${type} • poslao: ${submitter}<br/>
+            ${created} &nbsp; ${statusPill(item.status)}
+          </div>
+          ${
+            desc
+              ? `<div class="desc">${desc}</div>`
+              : ""
+          }
+        </div>
+      `;
+    }
+
+    async function loadSubmissions() {
+      statusEl.textContent = "Učitavam radove...";
+      const { data, error } = await supabaseClient
+        .from("artwork_submissions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        statusEl.textContent =
+          "Dogodila se greška pri učitavanju radova: " + error.message;
+        return;
+      }
+
+      allSubmissions = data;
+      statusEl.textContent = "";
+      renderLists();
+    }
+
+    myNameInput.addEventListener("input", () => {
+      // spremi zadnje korišteno ime u localStorage, da se automatski popuni sljedeći put
+      localStorage.setItem("street-ar-submitter-name", myNameInput.value.trim());
+      renderLists();
+    });
+
+    // automatski popuni nadimak ako postoji
+    const savedName = localStorage.getItem("street-ar-submitter-name");
+    if (savedName) {
+      myNameInput.value = savedName;
+    }
+
+    loadSubmissions();
+
+    // Navbar
+fetch("navbar.html")
+  .then((res) => res.text())
+  .then((html) => {
+    document.getElementById("navbar-placeholder").innerHTML = html;
+
+    // ako URL ima #all → Svi radovi, inače Moji unosi
+    const current = location.hash === "#all" ? "entries-all" : "entries-mine";
+
+    document
+      .querySelectorAll("#navbar .nav-item")
+      .forEach((item) => {
+        if (item.dataset.tab === current) item.classList.add("active");
+      });
+  });
+  </script>
 </body>
 </html>
