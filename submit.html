@@ -8,6 +8,13 @@
     <!-- Supabase JS (browser UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- Cropper.js CSS & JS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+
     <style>
       body {
         font-family: system-ui, sans-serif;
@@ -63,10 +70,15 @@
         display: none;
       }
       #crop-image {
-        position: absolute;
-        top: 0; left: 0;
-        transform-origin: center center;
-        touch-action: none;
+        max-width: 100%;
+        display: block;
+      }
+
+      #rotate-buttons {
+        display: none;
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
       }
 
       #preview {
@@ -105,6 +117,11 @@
 
     <div id="crop-container">
       <img id="crop-image" alt="Za crop" />
+    </div>
+
+    <div id="rotate-buttons">
+      <button type="button" id="rotate-left" class="small">Rotiraj lijevo</button>
+      <button type="button" id="rotate-right" class="small">Rotiraj desno</button>
     </div>
 
     <button type="button" id="confirm-crop-btn" class="small" style="display:none;">
@@ -185,44 +202,37 @@
       const previewImg = document.getElementById("preview");
       const submitBtn = document.getElementById("submit-btn");
       const formFields = document.getElementById("form-fields");
+      const rotateButtons = document.getElementById("rotate-buttons");
+      const rotateLeftBtn = document.getElementById("rotate-left");
+      const rotateRightBtn = document.getElementById("rotate-right");
 
       let currentLat = null;
       let currentLon = null;
       let croppedFile = null;
-      let imgFromScan = false; // flag: slika iz scana ili iz file inputa
+      let imgFromScan = false;
+      let cropper = null;
 
       function setStatus(msg) {
         statusEl.textContent = msg;
         console.log(msg);
       }
 
-      // ---------- Crop logika (jednostavan pan, fiksni okvir 4:3) ----------
-
-      let imgScale = 1;
-      let imgOffsetX = 0;
-      let imgOffsetY = 0;
-      let isDragging = false;
-      let lastX = 0;
-      let lastY = 0;
-      let imgNaturalWidth = 0;
-      let imgNaturalHeight = 0;
-
-      function resetCropState() {
-        imgScale = 1;
-        imgOffsetX = 0;
-        imgOffsetY = 0;
-        isDragging = false;
-      }
+      // ---------- Cropper.js logika ----------
 
       imageInput.addEventListener("change", () => {
         const file = imageInput.files[0];
         if (!file) {
           cropContainer.style.display = "none";
           confirmCropBtn.style.display = "none";
+          rotateButtons.style.display = "none";
           previewImg.style.display = "none";
           formFields.style.display = "none";
           croppedFile = null;
           imgFromScan = false;
+          if (cropper) {
+            cropper.destroy();
+            cropper = null;
+          }
           return;
         }
 
@@ -235,111 +245,50 @@
         cropImage.src = src;
         cropContainer.style.display = "block";
         confirmCropBtn.style.display = "inline-block";
+        rotateButtons.style.display = "flex";
         previewImg.style.display = "none";
         formFields.style.display = "none";
         croppedFile = null;
-        setStatus("Povuci sliku da namjestiš kadar, zatim potvrdi crop.");
+        setStatus("Povuci, uvećaj i po potrebi rotiraj sliku, zatim potvrdi crop.");
 
-        resetCropState();
+        if (cropper) {
+          cropper.destroy();
+        }
 
-        cropImage.onload = () => {
-          imgNaturalWidth = cropImage.naturalWidth;
-          imgNaturalHeight = cropImage.naturalHeight;
-          const containerRect = cropContainer.getBoundingClientRect();
-          const scale = Math.max(
-            containerRect.width / imgNaturalWidth,
-            containerRect.height / imgNaturalHeight
-          );
-          imgScale = scale;
-          imgOffsetX = 0;
-          imgOffsetY = 0;
-          updateCropImageTransform();
-        };
+        cropper = new Cropper(cropImage, {
+          viewMode: 1,
+          autoCropArea: 0.9,
+          responsive: true,
+          background: false,
+          movable: true,
+          zoomable: true,
+          scalable: true,
+          rotatable: true,
+        });
       }
 
-      function updateCropImageTransform() {
-        const containerRect = cropContainer.getBoundingClientRect();
-        cropImage.style.width = imgNaturalWidth * imgScale + "px";
-        cropImage.style.height = imgNaturalHeight * imgScale + "px";
-        const x = containerRect.width / 2 + imgOffsetX;
-        const y = containerRect.height / 2 + imgOffsetY;
-        cropImage.style.left = x - (imgNaturalWidth * imgScale) / 2 + "px";
-        cropImage.style.top = y - (imgNaturalHeight * imgScale) / 2 + "px";
-      }
-
-      function startDrag(x, y) {
-        isDragging = true;
-        lastX = x;
-        lastY = y;
-      }
-      function moveDrag(x, y) {
-        if (!isDragging) return;
-        const dx = x - lastX;
-        const dy = y - lastY;
-        lastX = x;
-        lastY = y;
-        imgOffsetX += dx;
-        imgOffsetY += dy;
-        updateCropImageTransform();
-      }
-      function endDrag() {
-        isDragging = false;
-      }
-
-      cropContainer.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        startDrag(e.clientX, e.clientY);
+      rotateLeftBtn.addEventListener("click", () => {
+        if (cropper) cropper.rotate(-90);
       });
-      window.addEventListener("mousemove", (e) => moveDrag(e.clientX, e.clientY));
-      window.addEventListener("mouseup", endDrag);
 
-      cropContainer.addEventListener("touchstart", (e) => {
-        if (e.touches.length !== 1) return;
-        const t = e.touches[0];
-        startDrag(t.clientX, t.clientY);
+      rotateRightBtn.addEventListener("click", () => {
+        if (cropper) cropper.rotate(90);
       });
-      cropContainer.addEventListener("touchmove", (e) => {
-        if (e.touches.length !== 1) return;
-        const t = e.touches[0];
-        moveDrag(t.clientX, t.clientY);
-      });
-      cropContainer.addEventListener("touchend", endDrag);
-      cropContainer.addEventListener("touchcancel", endDrag);
 
-      confirmCropBtn.addEventListener("click", async () => {
-        // sad dopuštamo crop i kad nema imageInput.files[0], ako postoji cropImage.src
-        if (!cropImage.src) return;
+      confirmCropBtn.addEventListener("click", () => {
+        if (!cropper) return;
 
-        const containerRect = cropContainer.getBoundingClientRect();
-        const canvas = document.createElement("canvas");
-        canvas.width = containerRect.width;
-        canvas.height = containerRect.height;
-        const ctx = canvas.getContext("2d");
-
-        const drawWidth = imgNaturalWidth * imgScale;
-        const drawHeight = imgNaturalHeight * imgScale;
-
-        const drawX =
-          containerRect.width / 2 + imgOffsetX - drawWidth / 2;
-        const drawY =
-          containerRect.height / 2 + imgOffsetY - drawHeight / 2;
-
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(
-          cropImage,
-          drawX,
-          drawY,
-          drawWidth,
-          drawHeight
-        );
+        // izrez u omjeru koji je korisnik odabrao (bez prisilnog 4:3)
+        const canvas = cropper.getCroppedCanvas({
+          fillColor: "#000",
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: "high",
+        });
 
         canvas.toBlob(
           (blob) => {
             if (!blob) return;
 
-            // ako imamo originalni file iz inputa, koristi njegovo ime,
-            // inače (slika iz scana) daj default ime i oznaci da vise nema pending slike
             let filename = "scan-crop.jpg";
             if (imageInput.files[0]) {
               filename = imageInput.files[0].name || "upload.jpg";
@@ -349,7 +298,6 @@
               type: "image/jpeg",
             });
 
-            // ako je slika došla iz scana, obriši je iz localStorage
             if (imgFromScan) {
               localStorage.removeItem("street-ar-pending-image");
             }
@@ -369,7 +317,6 @@
       const pendingImageDataUrl = localStorage.getItem("street-ar-pending-image");
       if (pendingImageDataUrl) {
         imgFromScan = true;
-        // sakrij manualni file input kad dolazimo iz scana
         imageLabel.style.display = "none";
         showImageForCrop(pendingImageDataUrl);
       }
@@ -485,6 +432,7 @@
           croppedFile = null;
           cropContainer.style.display = "none";
           confirmCropBtn.style.display = "none";
+          rotateButtons.style.display = "none";
           previewImg.style.display = "none";
           formFields.style.display = "none";
           currentLat = null;
