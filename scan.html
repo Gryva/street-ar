@@ -175,10 +175,12 @@
       statusEl.textContent = "Učitavam AR radove...";
 
       const { data, error } = await supabaseClient
-        .from("artwork_submissions")
-        .select("*")
-        .eq("status", "approved")
-        .order("created_at", { ascending: true });
+  .from("artwork_submissions")
+  .select("*")
+  .eq("status", "approved")
+  .not("target_index", "is", null)
+  .order("target_index", { ascending: true });
+
 
       if (error) {
         console.error(error);
@@ -197,9 +199,13 @@
       statusEl.textContent = "Skeniraj odobrene radove za AR.";
 
       data.forEach((item, index) => {
-        const marker = document.createElement("a-entity");
-        marker.setAttribute("id", `marker-${index}`);
-        marker.setAttribute("mindar-image-target", `targetIndex: ${index}`);
+  const marker = document.createElement("a-entity");
+  marker.setAttribute(
+    "mindar-image-target",
+    `targetIndex: ${item.target_index}`
+  );
+
+
 
         const frame = document.createElement("a-entity");
         frame.setAttribute("position", "0 0 0");
