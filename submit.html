@@ -15,60 +15,187 @@
     />
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
 
+    <!-- Roboto Condensed s latin-ext -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap&subset=latin-ext"
+    />
+
     <style>
       body {
-        font-family: system-ui, sans-serif;
-        padding: 16px;
-        padding-bottom: 80px; /* prostor za navbar dolje */
+        font-family: "Roboto Condensed", system-ui, sans-serif;
+        padding: 20px 16px 90px;
         max-width: 600px;
         margin: 0 auto;
         background: #000;
         color: #fff;
       }
-      h1 { margin-top: 0; }
-      label { display: block; margin-top: 12px; font-weight: 500; }
-      input, select, textarea {
+
+      h1 {
+        margin-top: 8px;
+        margin-bottom: 6px;
+        font-size: 22px;
+        letter-spacing: 0.04em;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .card {
+        background: linear-gradient(
+          145deg,
+          #050505 0%,
+          #111111 45%,
+          #15181f 100%
+        );
+        border-radius: 16px;
+        padding: 18px 16px 22px;
+        border: 1px solid #222;
+        box-shadow: 0 0 18px rgba(0, 0, 0, 0.75);
+      }
+
+      .section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #bbbbbb;
+        margin: 4px 0 12px;
+      }
+
+      label {
+        display: block;
+        margin-top: 16px;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #aaaaaa;
+      }
+
+      .field-label-main {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      input,
+      select,
+      textarea {
         width: 100%;
-        padding: 8px;
-        margin-top: 4px;
+        padding: 9px 11px;
+        margin-top: 2px;
         box-sizing: border-box;
-        border-radius: 4px;
+        border-radius: 999px;
         border: 1px solid #333;
         background: #111;
         color: #fff;
+        font-family: "Roboto Condensed", system-ui, sans-serif;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease,
+          background 0.15s ease;
       }
+
+      textarea {
+        border-radius: 10px;
+        resize: vertical;
+        min-height: 80px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        margin-top: 4px;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: #ffd700;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.35);
+        background: #141414;
+      }
+
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: linear-gradient(45deg, transparent 50%, #888 50%),
+          linear-gradient(135deg, #888 50%, transparent 50%);
+        background-position: calc(100% - 16px) 13px, calc(100% - 11px) 13px;
+        background-size: 5px 5px, 5px 5px;
+        background-repeat: no-repeat;
+      }
+
       button {
-        margin-top: 16px;
+        margin-top: 18px;
         padding: 10px 16px;
-        font-size: 16px;
-        border-radius: 4px;
-        border: 1px solid #444;
-        background: #1a1a1a;
+        font-size: 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: radial-gradient(
+          circle at top left,
+          rgba(255, 255, 255, 0.12),
+          rgba(0, 0, 0, 0.96)
+        );
         color: #fff;
         cursor: pointer;
+        font-family: "Roboto Condensed", system-ui, sans-serif;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.65);
+        transition: transform 0.12s ease, box-shadow 0.12s ease,
+          border-color 0.12s ease, background 0.12s ease;
       }
+
+      button.primary {
+        background: radial-gradient(
+          circle at top left,
+          rgba(255, 215, 0, 0.2),
+          rgba(0, 0, 0, 0.96)
+        );
+        border-color: rgba(255, 215, 0, 0.6);
+      }
+
       button.small {
-        font-size: 13px;
-        padding: 6px 10px;
+        font-size: 12px;
+        padding: 7px 11px;
       }
+
       button:disabled {
         opacity: 0.6;
         cursor: default;
+        box-shadow: none;
       }
-      #status { margin-top: 16px; white-space: pre-line; font-size: 13px; }
 
+      button:hover:not(:disabled) {
+        box-shadow: 0 0 16px rgba(255, 215, 0, 0.4);
+        border-color: rgba(255, 215, 0, 0.85);
+        transform: translateY(-1px);
+      }
+
+      #status {
+        margin-top: 18px;
+        white-space: pre-line;
+        font-size: 12px;
+        opacity: 0.85;
+      }
+
+      #status::before {
+        content: "● ";
+        color: #ffd700;
+      }
+
+      /* Slika + crop */
       #crop-container {
-        margin-top: 12px;
+        margin-top: 16px;
         width: 100%;
         max-width: 100%;
         aspect-ratio: 4 / 3;
         position: relative;
-        background: #111;
-        border-radius: 4px;
+        background: radial-gradient(circle at top, #202020, #050505 65%);
+        border-radius: 10px;
         overflow: hidden;
         border: 1px solid #333;
         display: none;
       }
+
       #crop-image {
         max-width: 100%;
         display: block;
@@ -76,106 +203,291 @@
 
       #rotate-buttons {
         display: none;
-        margin-top: 8px;
+        margin-top: 12px;
         display: flex;
         gap: 8px;
+        justify-content: space-between;
+      }
+
+      #rotate-left {
+        margin-right: auto;
+      }
+
+      #rotate-right {
+        margin-left: auto;
+      }
+
+      #confirm-crop-btn {
+        display: none;
+        margin-top: 16px;
+        width: 100%;
+        text-align: center;
+        justify-content: center;
       }
 
       #preview {
-        margin-top: 12px;
+        margin-top: 16px;
         max-width: 100%;
         border: 1px solid #333;
-        border-radius: 4px;
+        border-radius: 10px;
         display: none;
+        box-shadow: 0 0 16px rgba(0, 0, 0, 0.7);
       }
 
-      #loc-info { font-size: 12px; margin-top: 4px; opacity: 0.8; }
+      #loc-info {
+        font-size: 11px;
+        margin-top: 8px;
+        opacity: 0.8;
+        text-align: center;
+      }
 
-      #form-fields { display: none; }
+      #form-fields {
+        display: none;
+        margin-top: 22px;
+      }
 
       #navbar-placeholder {
         position: fixed;
-        left: 0; right: 0; bottom: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 50;
+      }
+
+      .field-row-inline {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+      }
+
+      .field-row-inline button {
+        margin-top: 0;
+      }
+
+      .hint {
+        font-size: 11px;
+        opacity: 0.75;
+        margin-top: 12px;
+      }
+
+      .pill-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.5);
+        color: #ffd700;
+        font-size: 11px;
+        margin-right: 6px;
+      }
+
+      .loc-icon-btn {
+        width: 56px;
+        height: 56px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        padding: 0;
+      }
+
+      #submit-btn {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 18px;
+        min-width: 70%;
+        text-align: center;
+      }
+
+      /* Ekran nakon slanja */
+      #thankyou-screen {
+        text-align: center;
+        padding: 40px 10px 10px;
+      }
+
+      #thankyou-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #ffd700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      #thankyou-subtitle {
+        font-size: 14px;
+        color: #ffffff;
+        opacity: 0.9;
+        margin-bottom: 22px;
+      }
+
+      #thankyou-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+
+      #btn-go-scan,
+      #btn-open-detail {
+        width: 80%;
+        max-width: 320px;
+      }
+
+      #btn-go-scan {
+        border-color: rgba(255, 215, 0, 0.8);
+      }
+
+      #btn-open-detail {
+        background: radial-gradient(
+          circle at top left,
+          rgba(255, 255, 255, 0.1),
+          rgba(0, 0, 0, 0.96)
+        );
       }
     </style>
   </head>
   <body>
-    <h1>Pošalji svoj rad u AR izložbu</h1>
-    <p>Na lokaciji si rada. Prvo uslikaj rad, izreži ga (crop), zatim ispuni podatke i pošalji.</p>
+    <h1 id="page-title">Pošalji svoj rad u AR izložbu</h1>
+    <p id="page-lead" class="lead">
+      Na lokaciji si rada. Uslikaj, izreži i dodaj osnovne informacije, a mi ćemo
+      ga spojiti s AR iskustvom.
+    </p>
 
-    <!-- 1. Slika + crop -->
-    <label id="image-label">
-      Slika rada (kamerom na lokaciji)
-      <input
-        type="file"
-        id="image"
-        accept="image/*"
-        capture="environment"
-      />
-    </label>
-
-    <div id="crop-container">
-      <img id="crop-image" alt="Za crop" />
-    </div>
-
-    <div id="rotate-buttons">
-      <button type="button" id="rotate-left" class="small">Rotiraj lijevo</button>
-      <button type="button" id="rotate-right" class="small">Rotiraj desno</button>
-    </div>
-
-    <button type="button" id="confirm-crop-btn" class="small" style="display:none;">
-      Potvrdi crop i nastavi
-    </button>
-
-    <img id="preview" alt="Pregled izrezanog rada" />
-
-    <!-- 2. Forma s podacima (pojavljuje se tek nakon cropa) -->
-    <form id="submission-form">
-      <div id="form-fields">
-        <label>
-          Ime autora rada
-          <input type="text" id="artist_name" required />
+    <div class="card" id="main-card">
+      <!-- 1. Slika + crop -->
+      <div class="section-title" id="step1-title">Korak 1 · Slika rada</div>
+      <div id="submit-flow">
+        <label id="image-label">
+          <span class="field-label-main">
+            <span class="pill-icon">📷</span>Slika rada (kamerom na lokaciji)
+          </span>
+          <input
+            type="file"
+            id="image"
+            accept="image/*"
+            capture="environment"
+          />
         </label>
 
-        <label>
-          Ime rada
-          <input type="text" id="title" required />
-        </label>
+        <div id="crop-container">
+          <img id="crop-image" alt="Za crop" />
+        </div>
 
-        <label>
-          Tip rada
-          <select id="type" required>
-            <option value="">Odaberi...</option>
-            <option value="fotografija">Fotografija</option>
-            <option value="crtez">Crtež</option>
-            <option value="grafit">Grafit</option>
-            <option value="plakat">Plakat</option>
-            <option value="ostalo">Ostalo</option>
-          </select>
-        </label>
+        <div id="rotate-buttons">
+          <button type="button" id="rotate-left" class="small">
+            ⟲ Rotiraj lijevo
+          </button>
+          <button type="button" id="rotate-right" class="small">
+            Rotiraj desno ⟳
+          </button>
+        </div>
 
-        <label>
-          Kratki opis (neobavezno)
-          <textarea id="description" rows="3" placeholder="Npr. što rad predstavlja, kontekst, zanimljivost..."></textarea>
-        </label>
+        <button
+          type="button"
+          id="confirm-crop-btn"
+          class="small primary"
+        >
+          ✅ Potvrdi crop i nastavi
+        </button>
 
-        <label>
-          Tvoje ime ili nadimak (neobavezno)
-          <input type="text" id="submitted_by" />
-        </label>
+        <img id="preview" alt="Pregled izrezanog rada" />
 
-        <label>
-          Lokacija rada (GPS)
-          <button type="button" id="loc-btn" class="small">Dohvati moju lokaciju</button>
-          <div id="loc-info">Lokacija još nije dohvaćena.</div>
-        </label>
+        <!-- 2. Forma s podacima (pojavljuje se tek nakon cropa) -->
+        <form id="submission-form">
+          <div id="form-fields">
+            <div class="section-title">Korak 2 · Detalji rada</div>
 
-        <button type="submit" id="submit-btn">Pošalji rad</button>
+            <label>
+              <span class="field-label-main">Ime autora rada</span>
+              <input type="text" id="artist_name" required />
+            </label>
+
+            <label>
+              <span class="field-label-main">Ime rada</span>
+              <input type="text" id="title" required />
+            </label>
+
+            <label>
+              <span class="field-label-main">Tip rada</span>
+              <select id="type" required>
+                <option value="">Odaberi...</option>
+                <option value="fotografija">Fotografija</option>
+                <option value="crtez">Crtež</option>
+                <option value="grafit">Grafit</option>
+                <option value="plakat">Plakat</option>
+                <option value="ostalo">Ostalo</option>
+              </select>
+            </label>
+
+            <label>
+              <span class="field-label-main">Kratki opis (neobavezno)</span>
+              <textarea
+                id="description"
+                rows="3"
+                placeholder="Npr. kontekst rada, priča iza vizuala, zanimljivost..."
+              ></textarea>
+            </label>
+
+            <label>
+              <span class="field-label-main"
+                >Tvoje ime ili nadimak (neobavezno)</span
+              >
+              <input
+                type="text"
+                id="submitted_by"
+                placeholder="Npr. lunar_123"
+              />
+            </label>
+
+            <label>
+              <span class="field-label-main">Lokacija rada (GPS)</span>
+              <div class="field-row-inline">
+                <button
+                  type="button"
+                  id="loc-btn"
+                  class="small loc-icon-btn"
+                  aria-label="Dohvati lokaciju"
+                >
+                  📍
+                </button>
+              </div>
+              <div id="loc-info">Lokacija još nije dohvaćena.</div>
+            </label>
+
+            <button type="submit" id="submit-btn" class="primary">
+              Pošalji rad u AR
+            </button>
+
+            <div class="hint">
+              Rad ide prvo na odobrenje. Kad ga admin potvrdi, pojavit će se u AR
+              skeniranju i na karti.
+            </div>
+          </div>
+        </form>
       </div>
-    </form>
 
-    <div id="status"></div>
+      <!-- Thank you screen (početno skriven) -->
+      <div id="thankyou-screen" class="hidden">
+        <div id="thankyou-title">Rad je poslan</div>
+        <div id="thankyou-subtitle">Hvala na doprinosu!</div>
+        <div id="thankyou-actions">
+          <button id="btn-go-scan" class="primary">
+            🔍 Skeniraj vizuale
+          </button>
+          <button id="btn-open-detail">
+            ➜ Provjeri status svog rada
+          </button>
+        </div>
+      </div>
+
+      <div id="status"></div>
+    </div>
 
     <div id="navbar-placeholder"></div>
 
@@ -206,11 +518,20 @@
       const rotateLeftBtn = document.getElementById("rotate-left");
       const rotateRightBtn = document.getElementById("rotate-right");
 
+      const pageTitle = document.getElementById("page-title");
+      const pageLead = document.getElementById("page-lead");
+      const step1Title = document.getElementById("step1-title");
+      const submitFlow = document.getElementById("submit-flow");
+      const thankyouScreen = document.getElementById("thankyou-screen");
+      const btnGoScan = document.getElementById("btn-go-scan");
+      const btnOpenDetail = document.getElementById("btn-open-detail");
+
       let currentLat = null;
       let currentLon = null;
       let croppedFile = null;
       let imgFromScan = false;
       let cropper = null;
+      let lastInsertedId = null;
 
       function setStatus(msg) {
         statusEl.textContent = msg;
@@ -218,7 +539,6 @@
       }
 
       // ---------- Cropper.js logika ----------
-
       imageInput.addEventListener("change", () => {
         const file = imageInput.files[0];
         if (!file) {
@@ -244,12 +564,14 @@
       function showImageForCrop(src) {
         cropImage.src = src;
         cropContainer.style.display = "block";
-        confirmCropBtn.style.display = "inline-block";
+        confirmCropBtn.style.display = "block";
         rotateButtons.style.display = "flex";
         previewImg.style.display = "none";
         formFields.style.display = "none";
         croppedFile = null;
-        setStatus("Povuci, uvećaj i po potrebi rotiraj sliku, zatim potvrdi crop.");
+        setStatus(
+          "Podesi kadar (zoom/rotacija) i potvrdi crop prije unosa podataka."
+        );
 
         if (cropper) {
           cropper.destroy();
@@ -263,7 +585,7 @@
           movable: true,
           zoomable: true,
           scalable: true,
-          rotatable: true,
+          rotatable: true
         });
       }
 
@@ -278,11 +600,10 @@
       confirmCropBtn.addEventListener("click", () => {
         if (!cropper) return;
 
-        // izrez u omjeru koji je korisnik odabrao (bez prisilnog 4:3)
         const canvas = cropper.getCroppedCanvas({
           fillColor: "#000",
           imageSmoothingEnabled: true,
-          imageSmoothingQuality: "high",
+          imageSmoothingQuality: "high"
         });
 
         canvas.toBlob(
@@ -295,7 +616,7 @@
             }
 
             croppedFile = new File([blob], filename, {
-              type: "image/jpeg",
+              type: "image/jpeg"
             });
 
             if (imgFromScan) {
@@ -306,7 +627,8 @@
             previewImg.src = previewUrl;
             previewImg.style.display = "block";
             formFields.style.display = "block";
-            setStatus("Crop potvrđen. Ispuni podatke o radu i pošalji.");
+            // makni tekst o podešavanju kadra nakon potvrde
+            setStatus("");
           },
           "image/jpeg",
           0.9
@@ -314,7 +636,9 @@
       });
 
       // provjeri je li skener ostavio sliku
-      const pendingImageDataUrl = localStorage.getItem("street-ar-pending-image");
+      const pendingImageDataUrl = localStorage.getItem(
+        "street-ar-pending-image"
+      );
       if (pendingImageDataUrl) {
         imgFromScan = true;
         imageLabel.style.display = "none";
@@ -359,7 +683,7 @@
           .from("submissions")
           .upload(path, file, {
             cacheControl: "3600",
-            upsert: false,
+            upsert: false
           });
 
         if (error) {
@@ -367,6 +691,16 @@
         }
 
         return data.path; // spremamo u image_path
+      }
+
+      function showThankYouScreen() {
+        pageTitle.textContent = "Rad je poslan";
+        if (pageLead) pageLead.classList.add("hidden");
+        step1Title.classList.add("hidden");
+        submitFlow.classList.add("hidden");
+        thankyouScreen.classList.remove("hidden");
+        // očisti status indikator
+        setStatus("");
       }
 
       // 5. Submit forme
@@ -404,7 +738,7 @@
 
           setStatus("Spremam podatke o radu...");
 
-          const { error } = await supabaseClient
+          const { data, error } = await supabaseClient
             .from("artwork_submissions")
             .insert({
               artist_name: artistName,
@@ -415,38 +749,44 @@
               longitude: currentLon,
               submitted_by: submittedBy,
               image_path: imagePath,
-              status: "pending",
-            });
+              status: "pending"
+            })
+            .select("id")
+            .single();
 
           if (error) {
             console.error(error);
             setStatus(
-              "Dogodila se greška pri spremanju rada: " +
-                error.message
+              "Dogodila se greška pri spremanju rada: " + error.message
             );
             submitBtn.disabled = false;
             return;
           }
 
-          form.reset();
-          croppedFile = null;
-          cropContainer.style.display = "none";
-          confirmCropBtn.style.display = "none";
-          rotateButtons.style.display = "none";
-          previewImg.style.display = "none";
-          formFields.style.display = "none";
-          currentLat = null;
-          currentLon = null;
-          locInfo.textContent = "Lokacija još nije dohvaćena.";
+          lastInsertedId = data?.id || null;
 
-          setStatus(
-            "Hvala ti! Tvoj rad je poslan i čeka odobrenje za AR izložbu."
-          );
+          // prikaži thank-you ekran
+          showThankYouScreen();
           submitBtn.disabled = false;
         } catch (err) {
           console.error(err);
           setStatus("Dogodila se greška: " + err.message);
           submitBtn.disabled = false;
+        }
+      });
+
+      // Thank-you gumbi
+      btnGoScan.addEventListener("click", () => {
+        window.location.href = "scan.html";
+      });
+
+      btnOpenDetail.addEventListener("click", () => {
+        if (lastInsertedId) {
+          window.location.href =
+            "detail.html?id=" + encodeURIComponent(lastInsertedId);
+        } else {
+          // fallback: odvedi na radove
+          window.location.href = "entries.html";
         }
       });
 

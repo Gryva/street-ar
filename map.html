@@ -4,63 +4,297 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Street AR – Mapa</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <!-- Roboto Condensed s latin-ext -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap&subset=latin-ext"
+  />
+
   <style>
+    /* Link unutar Leaflet popup prozora – uvijek bijel, bez podcrtavanja */
+.leaflet-popup-content a.popup-button,
+.leaflet-popup-content a.popup-button:link,
+.leaflet-popup-content a.popup-button:visited,
+.leaflet-popup-content a.popup-button:hover,
+.leaflet-popup-content a.popup-button:active {
+  color: #ffffff !important;
+  text-decoration: none;
+}
+
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+        sans-serif;
       background: #000;
       color: #fff;
     }
+
+    /* Header maknut – samo zadržavamo visinu preko calc u map-containeru */
     header {
-      padding: 10px 14px;
-      border-bottom: 1px solid #222;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      height: 0;
+      margin: 0;
+      padding: 0;
     }
+
     #map-container {
-      height: calc(100vh - 48px);
-      background: #111;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      opacity: 0.8;
+      height: 100vh;
+      background: #050505;
+      position: relative;
+      z-index: 1;
     }
-    button {
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      border: 1px solid #444;
+
+    #map {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    #navbar-placeholder {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 200;
+    }
+
+    .leaflet-container {
       background: #111;
-      color: #eee;
-      cursor: pointer;
+      font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+        sans-serif;
+    }
+    .leaflet-control-attribution {
+      font-size: 9px;
+    }
+
+    /* Popup stil – usklađen s drugim ekranima (gradient + glow) */
+    .leaflet-popup-content-wrapper {
+      background: linear-gradient(145deg, #050505 0%, #111111 45%, #15181f 100%);
+      color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 16px rgba(0, 0, 0, 0.8);
+      border: 1px solid #222;
+    }
+    .leaflet-popup-tip {
+      background: #111111;
+      border-top: 1px solid #222;
+      border-left: 1px solid #222;
+    }
+    .leaflet-popup-content {
+      margin: 8px 10px;
+    }
+
+    .popup-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 240px;
+    }
+
+    .popup-image-wrap {
+      width: 100%;
+      max-height: 140px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #111;
+    }
+    .popup-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .popup-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-top: 2px;
+      margin-bottom: 2px;
+      color: #ffd700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .popup-meta {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+    .popup-meta span.label {
+      color: #aaaaaa;
+    }
+    .popup-meta span.value {
+      color: #ffffff;
+    }
+
+    .popup-button {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  padding: 7px 8px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at top left,
+    rgba(255, 255, 255, 0.14),
+    rgba(0, 0, 0, 0.95)
+  );
+  color: #ffffff; /* ← tekst 100% bijel */
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+
+    .popup-button:hover {
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+      border-color: rgba(255, 215, 0, 0.7);
+      transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
-  <header>
-    <div>Mapa</div>
-  </header>
+  <header></header>
+
   <div id="map-container">
-    Ovdje ćemo ubaciti open-source mapu (npr. Leaflet) i prikaz lokacija grafita.
+    <div id="map"></div>
   </div>
 
   <div id="navbar-placeholder"></div>
 
-<script>
-  fetch("navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-placeholder").innerHTML = html;
-      const current = "map";
-      document
-        .querySelectorAll("#navbar .nav-item")
-        .forEach(item => {
-          if (item.dataset.tab === current) item.classList.add("active");
-        });
-    });
-</script>
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    // Navbar
+    fetch("navbar.html")
+      .then((res) => res.text())
+      .then((html) => {
+        document.getElementById("navbar-placeholder").innerHTML = html;
+        const current = "map";
+        document
+          .querySelectorAll("#navbar .nav-item")
+          .forEach((item) => {
+            if (item.dataset.tab === current) item.classList.add("active");
+          });
+      });
+
+    // Supabase client
+    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY =
+      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // Leaflet mapa – klasični OpenStreetMap tiles
+    const map = L.map("map", {
+      zoomControl: true,
+      maxZoom: 19
+    }).setView([46.3057, 16.3366], 14);
+
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Crveni pin icon
+    const redIcon = L.icon({
+      iconUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowUrl:
+        "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      shadowSize: [41, 41]
+    });
+
+    // Grupa svih markera da kasnije možemo fitBounds
+    const markersLayer = L.featureGroup().addTo(map);
+
+    function popupHtml(item) {
+      const title = item.title || "(bez naslova)";
+      const artist = item.artist_name || "Nepoznat autor";
+
+      const { data: imgData } = supabaseClient.storage
+        .from("submissions")
+        .getPublicUrl(item.image_path);
+      const imgUrl = imgData?.publicUrl || "";
+
+      const imgHtml = imgUrl
+        ? `<div class="popup-image-wrap">
+             <img src="${imgUrl}" alt="${title}" />
+           </div>`
+        : "";
+
+      const detailUrl = "detail.html?id=" + encodeURIComponent(item.id);
+
+      return `
+        <div class="popup-card">
+          ${imgHtml}
+          <div class="popup-title">${title}</div>
+          <div class="popup-meta">
+            <span class="label">autor: </span>
+            <span class="value">${artist}</span>
+          </div>
+          <a class="popup-button" href="${detailUrl}">Otvori detalje rada</a>
+        </div>
+      `;
+    }
+
+    async function loadApprovedLocations() {
+      const { data, error } = await supabaseClient
+        .from("artwork_submissions")
+        .select("*")
+        .eq("status", "approved")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+
+      if (error) {
+        console.error("Greška pri učitavanju lokacija:", error);
+        return;
+      }
+
+      if (!data || !data.length) {
+        console.log("Nema odobrenih radova s lokacijom.");
+        return;
+      }
+
+      data.forEach((item) => {
+        const lat = item.latitude;
+        const lng = item.longitude;
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+
+        const marker = L.marker([lat, lng], { icon: redIcon }).addTo(markersLayer);
+        marker.bindPopup(popupHtml(item), { maxWidth: 260 });
+      });
+
+      if (markersLayer.getLayers().length > 0) {
+        map.fitBounds(markersLayer.getBounds(), {
+          padding: [40, 40]
+        });
+      }
+    }
+
+    loadApprovedLocations();
+  </script>
 </body>
 </html>

@@ -1,34 +1,100 @@
 <!-- navbar.html -->
 <div id="navbar">
-  <a class="nav-item" href="scan.html" data-tab="scan">Skeniraj</a>
-  <!-- maknuto: <a class="nav-item" href="submit.html" data-tab="submit">Pošalji rad</a> -->
-  <a class="nav-item" href="entries.html" data-tab="entries">Radovi</a>
-  <a class="nav-item" href="map.html" data-tab="map">Mapa</a>
+  <a class="nav-item" href="scan.html" data-tab="scan">
+    <span class="nav-icon">⬢</span>
+    <span class="nav-label">Skeniraj</span>
+  </a>
+  <a class="nav-item" href="entries.html" data-tab="entries-mine">
+    <span class="nav-icon">☰</span>
+    <span class="nav-label">Radovi</span>
+  </a>
+  <a class="nav-item" href="map.html" data-tab="map">
+    <span class="nav-icon">⬡</span>
+    <span class="nav-label">Mapa</span>
+  </a>
 </div>
 
 <style>
   #navbar {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: 56px;
-    background: rgba(0,0,0,0.9);
-    border-top: 1px solid rgba(255,255,255,0.1);
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(
+      145deg,
+      rgba(5, 5, 5, 0.98) 0%,
+      rgba(10, 10, 18, 0.98) 45%,
+      rgba(14, 16, 26, 0.98) 100%
+    );
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
     display: flex;
     justify-content: space-around;
     align-items: center;
     z-index: 50;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.7);
   }
+
   .nav-item {
     flex: 1;
     text-align: center;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+      sans-serif;
     font-size: 11px;
     color: #aaa;
     text-decoration: none;
-    padding: 4px 0;
+    padding: 6px 0 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    position: relative;
+    transition: color 0.15s ease, transform 0.1s ease;
   }
+
+  .nav-icon {
+    font-size: 17px;
+    line-height: 1;
+    color: #aaa;
+    transition: color 0.15s ease, text-shadow 0.15s ease;
+  }
+
+  .nav-label {
+    line-height: 1.1;
+    font-weight: 500;
+    color: #aaa;
+    transition: color 0.15s ease, text-shadow 0.15s ease;
+  }
+
+  .nav-item::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle at top,
+      rgba(255, 215, 0, 0.18),
+      transparent 65%
+    );
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+  }
+
   .nav-item.active {
-    color: #fff;
-    font-weight: 600;
+    transform: translateY(-1px);
+  }
+
+  .nav-item.active::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .nav-item.active .nav-label,
+  .nav-item.active .nav-icon {
+    color: #ffd700;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+    font-weight: 700;
   }
 </style>

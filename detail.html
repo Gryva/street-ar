@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Street AR – Detalji rada</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Roboto Condensed s latin-ext za ČĆŠŽ -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap&subset=latin-ext"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+        sans-serif;
+      background: #000;
+      color: #fff;
+    }
+
+    /* HEADER */
+
+    header {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #222;
+    }
+    header button {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    }
+    header button span.icon {
+      font-size: 25px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    header button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* LAYOUT */
+
+    main {
+      padding: 16px 16px 90px;
+      max-width: 900px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    #status {
+      font-size: 13px;
+      opacity: 0.75;
+      margin-bottom: 16px;
+    }
+
+    .image-wrap {
+      width: 100%;
+      max-height: 40vh;
+      background: #111;
+      border-radius: 6px 6px 0 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0;
+    }
+    .image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .info-card {
+      padding: 16px 14px 14px;
+      background: linear-gradient(145deg, #050505 0%, #111111 45%, #15181f 100%);
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 0 16px rgba(0, 0, 0, 0.6);
+      margin-bottom: 20px;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 750;
+      margin: 6px 0 10px;
+      color: #ffd700;
+    }
+
+    /* STATUS BANNER – full width, centriran, kao ostali pending */
+
+    .status-banner {
+      width: 100%;
+      text-align: center;
+      padding: 8px 10px;
+      margin: 0 0 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: rgba(255, 215, 0, 0.12);
+      border: 1px solid rgba(255, 215, 0, 0.7);
+      color: #ffd700;
+      box-sizing: border-box;
+    }
+    .status-banner.hidden {
+      display: none;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .label-small {
+      font-size: 11px;
+      text-transform: lowercase;
+      color: #aaaaaa;
+      margin-bottom: 4px;
+    }
+    .value-highlight {
+      font-size: 13px;
+      color: #ffffff;
+    }
+    .value-accent {
+      font-size: 13px;
+      color: #ffd700;
+    }
+
+    .desc-block {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #333;
+    }
+    .desc-block-title {
+      font-size: 11px;
+      color: #aaaaaa;
+      margin-bottom: 4px;
+      text-transform: lowercase;
+    }
+    .desc {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .footer-meta {
+      margin-top: 16px;
+      padding-top: 8px;
+      border-top: 1px solid #555;
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      opacity: 0.9;
+    }
+
+    /* HORIZONTAL LISTA DRUGIH RADOVA */
+
+    .other-works-section {
+      margin-bottom: 92px;
+    }
+    .other-works-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #bbbbbb;
+      margin: 0 0 6px;
+    }
+    .other-works-strip {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 6px 2px 4px;
+      scrollbar-width: thin;
+    }
+    .other-works-strip::-webkit-scrollbar {
+      height: 5px;
+    }
+    .other-works-strip::-webkit-scrollbar-track {
+      background: #050505;
+    }
+    .other-works-strip::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 4px;
+    }
+    .other-card {
+      min-width: 120px;
+      max-width: 140px;
+      background: #111;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #222;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+    .other-card img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      display: block;
+    }
+    .other-card-title {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 6px 7px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .other-card:hover {
+      transform: translateY(-2px);
+      border-color: #ffd700;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.25);
+    }
+    .other-empty {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* BOTTOM ACTIONS */
+
+    .actions {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 56px;
+      padding: 10px 16px 12px;
+      box-sizing: border-box;
+      display: flex;
+      gap: 8px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .actions-inner {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+    }
+    .action-btn {
+      flex: 1;
+      padding: 11px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: radial-gradient(circle at top left, rgba(255,255,255,0.14), rgba(0,0,0,0.9));
+      color: #ffffff;
+      font-size: 14px;
+      text-align: center;
+      cursor: pointer;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+    .action-btn::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle, rgba(255,255,255,0.22), transparent 60%);
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+    }
+    .action-btn:hover {
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.25);
+      border-color: rgba(255, 215, 0, 0.6);
+      transform: translateY(-1px);
+    }
+    .action-btn:hover::before {
+      opacity: 1;
+      transform: scale(1);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button type="button" onclick="window.history.back()">
+      <span class="icon">←</span>
+      <span>Natrag</span>
+    </button>
+  </header>
+
+  <main>
+    <div id="status">Učitavam rad...</div>
+
+    <div id="content" style="display:none;">
+      <div class="image-wrap">
+        <img id="art-image" src="" alt="" />
+      </div>
+
+      <div class="info-card">
+        <!-- STATUS – prikazuje se samo kad je status 'pending' -->
+        <div id="art-status-banner" class="status-banner hidden">
+          pending
+        </div>
+
+        <div class="title" id="art-title"></div>
+
+        <div class="row">
+          <div>
+            <div class="label-small">autor:</div>
+            <div class="value-accent" id="art-artist"></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="label-small">tip:</div>
+            <div class="value-highlight" id="art-type"></div>
+          </div>
+        </div>
+
+        <div class="desc-block">
+          <div class="desc-block-title">opis:</div>
+          <div class="desc" id="art-desc"></div>
+        </div>
+
+        <div class="footer-meta">
+          <div id="art-submitter"></div>
+          <div id="art-date"></div>
+        </div>
+      </div>
+
+      <!-- Još radova istog autora -->
+      <section class="other-works-section" id="other-works-section" style="display:none;">
+        <div class="other-works-title">Još radova ovog autora</div>
+        <div class="other-works-strip" id="other-works-strip"></div>
+        <div class="other-empty" id="other-empty" style="display:none;">
+          Ovaj autor još nema drugih radova u sustavu.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Bottom actions -->
+  <div class="actions" id="actions" style="display:none;">
+    <div class="actions-inner">
+      <button class="action-btn" id="share-btn" type="button">Podijeli</button>
+      <a class="action-btn" id="map-btn" href="#">Pokaži na mapi</a>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY =
+      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const statusEl = document.getElementById("status");
+    const contentEl = document.getElementById("content");
+    const actionsEl = document.getElementById("actions");
+    const imgEl = document.getElementById("art-image");
+    const titleEl = document.getElementById("art-title");
+    const artistEl = document.getElementById("art-artist");
+    const typeEl = document.getElementById("art-type");
+    const descEl = document.getElementById("art-desc");
+    const submitterEl = document.getElementById("art-submitter");
+    const dateEl = document.getElementById("art-date");
+    const shareBtn = document.getElementById("share-btn");
+    const mapBtn = document.getElementById("map-btn");
+
+    const statusBannerEl = document.getElementById("art-status-banner");
+
+    const otherSection = document.getElementById("other-works-section");
+    const otherStrip = document.getElementById("other-works-strip");
+    const otherEmpty = document.getElementById("other-empty");
+
+    function getIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("id");
+    }
+
+    function formatDateOnly(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleDateString("hr-HR");
+    }
+
+    function updateStatusBanner(status) {
+      if (!status || status.toLowerCase() !== "pending") {
+        statusBannerEl.classList.add("hidden");
+        return;
+      }
+      statusBannerEl.textContent = "pending";
+      statusBannerEl.classList.remove("hidden");
+    }
+
+    async function loadArtwork() {
+      const id = getIdFromUrl();
+      if (!id) {
+        statusEl.textContent = "Nedostaje ID rada u URL-u.";
+        return;
+      }
+
+      statusEl.textContent = "Učitavam rad...";
+
+      const { data, error } = await supabaseClient
+        .from("artwork_submissions")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+        statusEl.textContent =
+          "Dogodila se greška pri učitavanju rada: " + error.message;
+        return;
+      }
+      if (!data) {
+        statusEl.textContent = "Rad nije pronađen.";
+        return;
+      }
+
+      const item = data;
+      const title = item.title || "(bez naslova)";
+      const artist = item.artist_name || "Nepoznat autor";
+      const type = item.type || "grafit";
+      const desc = item.description || "";
+      const submitter = item.submitted_by || "anonimno";
+      const createdDateOnly = formatDateOnly(item.created_at);
+
+      // status banner (samo pending)
+      updateStatusBanner(item.status);
+
+      const { data: imgData } = supabaseClient.storage
+        .from("submissions")
+        .getPublicUrl(item.image_path);
+      const imgUrl = imgData?.publicUrl || "";
+
+      if (imgUrl) {
+        imgEl.src = imgUrl;
+        imgEl.alt = title;
+      } else {
+        imgEl.style.display = "none";
+      }
+
+      titleEl.textContent = title;
+      artistEl.textContent = artist;
+      typeEl.textContent = type;
+      descEl.textContent = desc || "";
+      submitterEl.textContent = "poslao: " + submitter;
+      dateEl.textContent = createdDateOnly ? createdDateOnly : "";
+
+      statusEl.style.display = "none";
+      contentEl.style.display = "block";
+      actionsEl.style.display = "block";
+
+      const shareUrl = window.location.href;
+      shareBtn.addEventListener("click", async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: title,
+              text: "Pogledaj ovaj rad u Street AR galeriji.",
+              url: shareUrl,
+            });
+          } catch (err) {
+            console.error("Dijeljenje nije uspjelo:", err);
+          }
+        } else {
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            alert("Link kopiran u međuspremnik.");
+          } catch (e) {
+            alert("Ovaj preglednik ne podržava dijeljenje.");
+          }
+        }
+      });
+
+      mapBtn.href = "map.html?id=" + encodeURIComponent(item.id);
+
+      loadOtherWorksByAuthor(item);
+    }
+
+    async function loadOtherWorksByAuthor(currentItem) {
+      const artistName = currentItem.artist_name;
+      if (!artistName) {
+        otherSection.style.display = "none";
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from("artwork_submissions")
+        .select("*")
+        .ilike("artist_name", artistName)
+        .neq("id", currentItem.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Greška pri učitavanju ostalih radova:", error);
+        otherSection.style.display = "none";
+        return;
+      }
+
+      if (!data || !data.length) {
+        otherSection.style.display = "block";
+        otherEmpty.style.display = "block";
+        return;
+      }
+
+      otherStrip.innerHTML = "";
+      data.forEach((item) => {
+        const { data: imgData } = supabaseClient.storage
+          .from("submissions")
+          .getPublicUrl(item.image_path);
+        const imgUrl = imgData?.publicUrl || "";
+        const title = item.title || "(bez naslova)";
+        const url = "detail.html?id=" + encodeURIComponent(item.id);
+
+        const card = document.createElement("a");
+        card.className = "other-card";
+        card.href = url;
+        card.innerHTML = `
+          ${imgUrl ? `<img src="${imgUrl}" alt="${title}" />` : ""}
+          <div class="other-card-title">${title}</div>
+        `;
+        otherStrip.appendChild(card);
+      });
+
+      otherSection.style.display = "block";
+      otherEmpty.style.display = "none";
+    }
+
+    loadArtwork();
+  </script>
+</body>
+</html>

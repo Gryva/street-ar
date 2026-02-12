@@ -7,10 +7,17 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+  <!-- Roboto Condensed s latin-ext -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap&subset=latin-ext"
+  />
+
   <style>
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+        sans-serif;
       background: #000;
       color: #fff;
     }
@@ -19,27 +26,52 @@
       border-bottom: 1px solid #222;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
     }
     main {
-      padding: 10px 14px 60px;
+      padding: 12px 14px 70px;
       font-size: 13px;
+      max-width: 900px;
+      margin: 0 auto;
+      box-sizing: border-box;
     }
+
     h2 {
       font-size: 14px;
-      margin: 12px 0 6px;
-    }
-    .entry {
-      border-bottom: 1px solid #222;
-      padding: 8px 0;
+      margin: 10px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 6px;
+      color: #bbbbbb;
     }
+
+    .entry {
+      margin: 10px 0;
+    }
+
+    .entry-card {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, #050505 0%, #111111 45%, #15181f 100%);
+      box-shadow: 0 0 14px rgba(0, 0, 0, 0.7);
+      border: 1px solid #222;
+      transition: box-shadow 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
+    }
+    .entry-card:hover {
+      transform: translateY(-1px);
+      border-color: #ffd700;
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.18);
+    }
+
     .thumb {
-      width: 64px;
-      height: 64px;
+      width: 80px;
+      height: 80px;
       background: #111;
-      border-radius: 4px;
+      border-radius: 6px;
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -47,62 +79,139 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
     }
-    .title { font-weight: 600; font-size: 14px; }
-    .meta { font-size: 12px; opacity: 0.8; }
-    .desc { font-size: 12px; opacity: 0.9; margin-top: 3px; }
+
+    .entry-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 4px;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .author-line,
+    .submitter-line {
+      font-size: 12px;
+      opacity: 0.9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .author-label,
+    .submitter-label {
+      color: #aaaaaa;
+    }
+    .author-name {
+      color: #ffd700;
+    }
+    .author-name.dimmed {
+      color: #ffffff;
+    }
+    .submitter-name {
+      color: #ffffff;
+    }
+    .submitter-name.highlight {
+      color: #ffd700;
+    }
+
     .status-pill {
       display: inline-block;
-      padding: 2px 6px;
+      padding: 1px 6px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+      width: auto;
+      white-space: nowrap;
     }
-    .status-pending { background: #664400; color: #ffdd99; }
-    .status-approved { background: #004d26; color: #8dffb9; }
-    .status-rejected { background: #4d0000; color: #ff9a9a; }
+    .status-pending {
+      background: #664400;
+      color: #ffdd99;
+    }
+    .status-approved {
+      background: #004d26;
+      color: #8dffb9;
+    }
+    .status-rejected {
+      background: #4d0000;
+      color: #ff9a9a;
+    }
 
     #navbar-placeholder {
       position: fixed;
-      left: 0; right: 0; bottom: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       z-index: 50;
     }
 
-    #status { font-size: 12px; opacity: 0.7; margin-bottom: 6px; }
+    #status {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
 
     #my-name-input {
       width: 100%;
-      padding: 6px 8px;
+      padding: 8px 10px;
       margin-top: 4px;
-      border-radius: 4px;
+      border-radius: 999px;
       border: 1px solid #333;
       background: #111;
       color: #fff;
       box-sizing: border-box;
       font-size: 13px;
+      outline: none;
+    }
+
+    #my-name-input:focus {
+      border-color: #ffd700;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
     }
 
     #my-entries-section,
     #all-entries-section {
       margin-top: 10px;
     }
+
+    a.entry-link {
+      color: inherit;
+      text-decoration: none;
+      display: block;
+    }
+
+    .helper-text {
+      opacity: 0.7;
+      margin-top: 6px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
   <header>
-    <div>Unosi</div>
+    <!-- prazan, samo ostavlja prostor za nav bar ispod -->
   </header>
 
   <main>
     <div id="status">Učitavam radove...</div>
 
     <section id="my-entries-section">
-      <h2>Moji unosi</h2>
-      <label for="my-name-input">
-        Upiši isti nadimak / ime koje koristiš kod slanja radova:
+      <h2>Pretraživanje <span style="font-size:15px;">🔍</span></h2>
+      <label for="my-name-input" style="font-size:12px; opacity:0.8;">
+        Traži po nadimku, imenu rada ili autoru:
       </label>
-      <input id="my-name-input" type="text" placeholder="Npr. lunar_123" />
+      <input id="my-name-input" type="text" placeholder="Npr. lunar_123 ili ime rada" />
       <div id="my-entries"></div>
     </section>
 
@@ -116,7 +225,8 @@
 
   <script>
     const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+    const SUPABASE_PUBLISHABLE_KEY =
+      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
@@ -130,96 +240,120 @@
 
     function statusPill(status) {
       const s = (status || "pending").toLowerCase();
-      let cls = "status-pending";
-      let label = "PENDING";
       if (s === "approved") {
-        cls = "status-approved";
-        label = "ODOBRENO";
+        return '<span class="status-pill status-approved">APPROVED</span>';
       } else if (s === "rejected") {
-        cls = "status-rejected";
-        label = "ODBIJENO";
-      }
-      return `<span class="status-pill ${cls}">${label}</span>`;
-    }
-
-    function renderLists() {
-      const name = myNameInput.value.trim().toLowerCase();
-
-      // Fuzzy match: sve što POČINJE s upisanim tekstom
-      const mine = name
-        ? allSubmissions.filter((s) => {
-            const sub = (s.submitted_by || "").toLowerCase();
-            return sub.startsWith(name);
-          })
-        : [];
-
-      myEntriesEl.innerHTML = "";
-      if (!name) {
-        myEntriesEl.innerHTML =
-          "<p style='opacity:0.7; margin-top:6px;'>Upiši nadimak da vidiš svoje unose.</p>";
-      } else if (!mine.length) {
-        myEntriesEl.innerHTML =
-          "<p style='opacity:0.7; margin-top:6px;'>Nema unosa za taj nadimak.</p>";
+        return '<span class="status-pill status-rejected">DENIED</span>';
       } else {
-        mine.forEach((item) => {
-          const div = document.createElement("div");
-          div.className = "entry";
-          div.innerHTML = entryHtml(item);
-          myEntriesEl.appendChild(div);
-        });
-      }
-
-      // ako nešto piše, skrivamo "Svi radovi"
-      if (name) {
-        allSection.style.display = "none";
-      } else {
-        allSection.style.display = "block";
-        allEntriesEl.innerHTML = "";
-        if (!allSubmissions.length) {
-          allEntriesEl.innerHTML =
-            "<p style='opacity:0.7;'>Još nema prijavljenih radova.</p>";
-        } else {
-          allSubmissions.forEach((item) => {
-            const div = document.createElement("div");
-            div.className = "entry";
-            div.innerHTML = entryHtml(item);
-            allEntriesEl.appendChild(div);
-          });
-        }
+        return '<span class="status-pill status-pending">PENDING</span>';
       }
     }
 
-    function entryHtml(item) {
-      const created = item.created_at
-        ? new Date(item.created_at).toLocaleString("hr-HR")
-        : "";
+    // helper: render kartice rada
+    // dimAuthor: kad tražimo po submitted_by, autor ide bijelo
+    // highlightSubmitter: poslao: žut samo kad query matchea submitted_by
+    // showStatus: prikaz pill-a samo kad se traži po submitted_by
+    function entryHtml(item, dimAuthor, highlightSubmitter, showStatus) {
+      const title = item.title || "(bez naslova)";
       const artist = item.artist_name || "Nepoznat autor";
       const submitter = item.submitted_by || "anonimno";
-      const desc = item.description || "";
-      const type = item.type || "nepoznato";
 
       const { data } = supabaseClient.storage
         .from("submissions")
         .getPublicUrl(item.image_path);
       const imgUrl = data.publicUrl;
 
+      const detailUrl = "detail.html?id=" + encodeURIComponent(item.id);
+
+      const statusHtml = showStatus ? statusPill(item.status) : "";
+      const submitterClass = highlightSubmitter ? "submitter-name highlight" : "submitter-name";
+      const authorClass = dimAuthor ? "author-name dimmed" : "author-name";
+
       return `
-        <div class="thumb">
-          <img src="${imgUrl}" alt="${item.title || ""}" />
-        </div>
-        <div>
-          <div class="title">${item.title || "(bez naslova)"}</div>
-          <div class="meta">
-            ${artist} • tip: ${type} • poslao: ${submitter}<br/>
-            ${created} &nbsp; ${statusPill(item.status)}
+        <a class="entry-link" href="${detailUrl}">
+          <div class="entry-card">
+            <div class="thumb">
+              <img src="${imgUrl}" alt="${title}" />
+            </div>
+            <div class="entry-body">
+              <div class="title">${title}</div>
+              <div class="author-line">
+                <span class="author-label">autor: </span>
+                <span class="${authorClass}">${artist}</span>
+              </div>
+              <div class="submitter-line">
+                <span class="submitter-label">poslao: </span>
+                <span class="${submitterClass}">${submitter}</span>
+              </div>
+              ${statusHtml}
+            </div>
           </div>
-          ${
-            desc
-              ? `<div class="desc">${desc}</div>`
-              : ""
-          }
-        </div>
+        </a>
       `;
+    }
+
+    function renderLists() {
+      const query = myNameInput.value.trim().toLowerCase();
+
+      // Ako ima upit, filtriramo po submitted_by, title ili artist_name
+      const mine = query
+        ? allSubmissions.filter((s) => {
+            const sub = (s.submitted_by || "").toLowerCase();
+            const title = (s.title || "").toLowerCase();
+            const artist = (s.artist_name || "").toLowerCase();
+            return (
+              sub.includes(query) ||
+              title.includes(query) ||
+              artist.includes(query)
+            );
+          })
+        : [];
+
+      myEntriesEl.innerHTML = "";
+      if (!query) {
+        myEntriesEl.innerHTML =
+          "<p class='helper-text'>Pretraži po nadimku, imenu rada ili autoru.</p>";
+      } else if (!mine.length) {
+        myEntriesEl.innerHTML =
+          "<p class='helper-text'>Nema unosa koji odgovaraju pretraživanju.</p>";
+      } else {
+        mine.forEach((item) => {
+          const sub = (item.submitted_by || "").toLowerCase();
+          const matchesSubmitter = sub.includes(query);
+          const dimAuthor = matchesSubmitter;          // autor bijel kad tražimo po 'poslao'
+          const highlightSubmitter = matchesSubmitter; // 'poslao' žut samo tad
+          const showStatus = matchesSubmitter;         // status samo tad
+          const div = document.createElement("div");
+          div.className = "entry";
+          div.innerHTML = entryHtml(item, dimAuthor, highlightSubmitter, showStatus);
+          myEntriesEl.appendChild(div);
+        });
+      }
+
+      // Ako korisnik nešto pretražuje, skrivamo "Svi radovi"
+      if (query) {
+        allSection.style.display = "none";
+      } else {
+        allSection.style.display = "block";
+        allEntriesEl.innerHTML = "";
+
+        // Svi radovi: samo APPROVED, bez status pillova, autor žut, poslao bijel
+        const approvedOnly = allSubmissions.filter(
+          (s) => (s.status || "pending").toLowerCase() === "approved"
+        );
+
+        if (!approvedOnly.length) {
+          allEntriesEl.innerHTML =
+            "<p class='helper-text'>Još nema odobrenih radova.</p>";
+        } else {
+          approvedOnly.forEach((item) => {
+            const div = document.createElement("div");
+            div.className = "entry";
+            div.innerHTML = entryHtml(item, false, false, false);
+            allEntriesEl.appendChild(div);
+          });
+        }
+      }
     }
 
     async function loadSubmissions() {
@@ -236,13 +370,16 @@
         return;
       }
 
-      allSubmissions = data;
+      allSubmissions = data || [];
       statusEl.textContent = "";
       renderLists();
     }
 
     myNameInput.addEventListener("input", () => {
-      localStorage.setItem("street-ar-submitter-name", myNameInput.value.trim());
+      localStorage.setItem(
+        "street-ar-submitter-name",
+        myNameInput.value.trim()
+      );
       renderLists();
     });
 
