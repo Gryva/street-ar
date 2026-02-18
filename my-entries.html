@@ -271,9 +271,11 @@
       statusEl.textContent = "Učitavam tvoje unose...";
 
       const { data, error } = await supabaseClient
-        .from("artwork_submissions")
-        .select("*")
-        .order("created_at", { ascending: false });
+  .from("artwork_submissions")
+  .select("*")
+  .eq("owner_id", user.id)        // samo unosi ovog usera
+  .order("created_at", { ascending: false });
+
 
       if (error) {
         console.error(error);
