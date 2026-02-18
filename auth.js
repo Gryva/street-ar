@@ -27,13 +27,22 @@ async function ensureAnonAuth() {
 const USERNAME_KEY = "street-ar-submit-name";
 
 function getStoredUsername() {
-  const v = localStorage.getItem(USERNAME_KEY);
-  return v && v.trim() ? v.trim() : null;
+  try {
+    const v = localStorage.getItem(USERNAME_KEY);
+    return v && v.trim() ? v.trim() : null;
+  } catch (e) {
+    console.error("getStoredUsername error", e);
+    return null;
+  }
 }
 
 function setStoredUsername(name) {
-  if (name && name.trim()) {
-    localStorage.setItem(USERNAME_KEY, name.trim());
+  try {
+    if (name && name.trim()) {
+      localStorage.setItem(USERNAME_KEY, name.trim());
+    }
+  } catch (e) {
+    console.error("setStoredUsername error", e);
   }
 }
 
@@ -58,18 +67,18 @@ async function fetchProfileNickname() {
 
 // Glavni helper: pobrini se da user ima jedinstveni nickname
 async function ensureNickname() {
-  // 1) probaj iz localStorage
+  // 1) localStorage
   let name = getStoredUsername();
   if (name) return name;
 
-  // 2) probaj iz Supabase profila
+  // 2) Supabase profil vezan uz ovog usera
   const profileNick = await fetchProfileNickname();
   if (profileNick) {
     setStoredUsername(profileNick);
     return profileNick;
   }
 
-  // 3) novi nadimak – pitaj usera i provjeri duplikat
+  // 3) novi nadimak – pitaj usera i provjeri da netko DRUGI nema to ime
   const user = await ensureAnonAuth();
   if (!user) {
     alert("Greška pri prijavi korisnika.");
@@ -89,10 +98,10 @@ async function ensureNickname() {
     const candidate = input.trim();
     if (!candidate) continue;
 
-    // provjera duplikata
+    // provjera duplikata: je li taj nick već zauzet od NEKOG DRUGOG usera
     const { data: taken, error } = await supabaseClient
       .from("submitter_profiles")
-      .select("id")
+      .select("owner_id")
       .eq("nickname", candidate)
       .maybeSingle();
 
@@ -102,23 +111,26 @@ async function ensureNickname() {
       continue;
     }
 
-    if (taken) {
+    if (taken && taken.owner_id !== user.id) {
+      // netko drugi koristi taj nickname
       alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
       continue;
     }
 
-    // slobodno: kreiraj profil
-    const { error: insertError } = await supabaseClient
-      .from("submitter_profiles")
-      .insert({
-        owner_id: user.id,
-        nickname: candidate
-      });
+    // ako postoji zapis s istim owner_id (npr. stari), nećemo raditi novi insert
+    if (!taken) {
+      const { error: insertError } = await supabaseClient
+        .from("submitter_profiles")
+        .insert({
+          owner_id: user.id,
+          nickname: candidate
+        });
 
-    if (insertError) {
-      console.error("insert nickname error", insertError);
-      alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
-      continue;
+      if (insertError) {
+        console.error("insert nickname error", insertError);
+        alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
+        continue;
+      }
     }
 
     setStoredUsername(candidate);
