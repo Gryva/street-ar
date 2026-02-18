@@ -66,6 +66,7 @@ async function fetchProfileNickname() {
 }
 
 // Glavni helper: pobrini se da user ima jedinstveni nickname
+async function ensureNickname() {// Glavni helper: pobrini se da user ima jedinstveni nickname
 async function ensureNickname() {
   // 1) probaj iz localStorage
   let name = getStoredUsername();
@@ -98,7 +99,7 @@ async function ensureNickname() {
     const candidate = input.trim();
     if (!candidate) continue;
 
-    // provjera: koristi li taj nadimak NETKO DRUGI
+    // provjera: postoji li neki profil s tim nadimkom
     const { data: taken, error } = await supabaseClient
       .from("submitter_profiles")
       .select("owner_id")
@@ -111,29 +112,36 @@ async function ensureNickname() {
       continue;
     }
 
+    // ako nadimak postoji i pripada BAŠ ovom useru,
+    // samo ga prihvati i spremi lokalno (bez novog inserta)
+    if (taken && taken.owner_id === user.id) {
+      setStoredUsername(candidate);
+      return candidate;
+    }
+
+    // ako nadimak postoji za nekog DRUGOG usera -> blokiraj
     if (taken && taken.owner_id !== user.id) {
-      // netko DRUGI već ima to ime → ne dopuštamo
       alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
       continue;
     }
 
-    // ako postoji zapis s ovim owner_id i ovim nicknameom, ne radimo novi insert
-    if (!taken) {
-      const { error: insertError } = await supabaseClient
-        .from("submitter_profiles")
-        .insert({
-          owner_id: user.id,
-          nickname: candidate
-        });
+    // ovdje znamo da nadimak NE postoji -> pokušaj insert
+    const { error: insertError } = await supabaseClient
+      .from("submitter_profiles")
+      .insert({
+        owner_id: user.id,
+        nickname: candidate
+      });
 
-      if (insertError) {
-        console.error("insert nickname error", insertError);
-        alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
-        continue;
-      }
+    if (insertError) {
+      console.error("insert nickname error", insertError);
+      alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
+      continue;
     }
 
     setStoredUsername(candidate);
     return candidate;
   }
+}
+
 }
