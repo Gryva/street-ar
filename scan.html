@@ -6,7 +6,7 @@
   <title>Street AR – Skeniraj</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mindar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -421,6 +421,7 @@
         // spremi ID rada za kasnije
         marker.dataset.artworkId = item.id;
 
+        // okvir
         const frame = document.createElement("a-entity");
         frame.setAttribute("position", "0 0.15 0");
         frame.innerHTML = `
@@ -438,39 +439,72 @@
 
         const textBlock = document.createElement("a-entity");
         textBlock.setAttribute("position", "0 0.15 0");
-        textBlock.innerHTML = `
-          <a-entity position="0 0.9 0">
-            <a-plane width="1.8" height="0.42" color="#000000" opacity="0.88"></a-plane>
-            <a-plane width="1.86" height="0.46" color="#ffd700" opacity="0.12"></a-plane>
-            <a-text value="${title}"
-                    color="#ffd700"
-                    align="center"
-                    width="2.2"
-                    position="0 0.11 0.02"
-                    wrap-count="32"></a-text>
-            <a-text value="Autor: ${artist} • Tip: ${type}"
-                    color="#ffffff"
-                    align="center"
-                    width="2.2"
-                    position="0 -0.07 0.02"
-                    wrap-count="38"></a-text>
-          </a-entity>
-          ${
-            desc
-              ? `
-          <a-entity position="0 -1.0 0">
-            <a-plane width="1.9" height="0.7" color="#000000" opacity="0.88"></a-plane>
-            <a-text value="${desc}"
-                    color="#dddddd"
-                    align="center"
-                    width="2.3"
-                    position="0 0 0.02"
-                    wrap-count="44"></a-text>
-          </a-entity>
-              `
-              : ""
-          }
-        `;
+
+        // gornji panel (naslov + meta)
+        const topPanel = document.createElement("a-entity");
+        topPanel.setAttribute("position", "0 0.9 0");
+
+        const topBg = document.createElement("a-plane");
+        topBg.setAttribute("width", "1.8");
+        topBg.setAttribute("height", "0.42");
+        topBg.setAttribute("color", "#000000");
+        topBg.setAttribute("opacity", "0.88");
+        topPanel.appendChild(topBg);
+
+        const topBorder = document.createElement("a-plane");
+        topBorder.setAttribute("width", "1.86");
+        topBorder.setAttribute("height", "0.46");
+        topBorder.setAttribute("color", "#ffd700");
+        topBorder.setAttribute("opacity", "0.12");
+        topPanel.appendChild(topBorder);
+
+        const titleText = document.createElement("a-text");
+        titleText.setAttribute("color", "#ffd700");
+        titleText.setAttribute("align", "center");
+        titleText.setAttribute("width", "2.2");
+        titleText.setAttribute("position", "0 0.11 0.02");
+        titleText.setAttribute("wrap-count", "32");
+        titleText.setAttribute("value", title);
+        topPanel.appendChild(titleText);
+
+        const metaText = document.createElement("a-text");
+        metaText.setAttribute("color", "#ffffff");
+        metaText.setAttribute("align", "center");
+        metaText.setAttribute("width", "2.2");
+        metaText.setAttribute("position", "0 -0.07 0.02");
+        metaText.setAttribute("wrap-count", "38");
+        metaText.setAttribute(
+          "value",
+          `Autor: ${artist} • Tip: ${type}`
+        );
+        topPanel.appendChild(metaText);
+
+        textBlock.appendChild(topPanel);
+
+        // opis (ako postoji)
+        if (desc) {
+          const bottomPanel = document.createElement("a-entity");
+          bottomPanel.setAttribute("position", "0 -1.0 0");
+
+          const bottomBg = document.createElement("a-plane");
+          bottomBg.setAttribute("width", "1.9");
+          bottomBg.setAttribute("height", "0.7");
+          bottomBg.setAttribute("color", "#000000");
+          bottomBg.setAttribute("opacity", "0.88");
+          bottomPanel.appendChild(bottomBg);
+
+          const descText = document.createElement("a-text");
+          descText.setAttribute("color", "#dddddd");
+          descText.setAttribute("align", "center");
+          descText.setAttribute("width", "2.3");
+          descText.setAttribute("position", "0 0 0.02");
+          descText.setAttribute("wrap-count", "44");
+          descText.setAttribute("value", desc);
+          bottomPanel.appendChild(descText);
+
+          textBlock.appendChild(bottomPanel);
+        }
+
         marker.appendChild(textBlock);
 
         scene.appendChild(marker);

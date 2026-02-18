@@ -143,9 +143,9 @@
       <div class="card card-welcome p-4">
         <h2 class="h5 mb-3">Tvoj potpis u galeriji</h2>
         <p class="mb-3" style="font-size: 13px; opacity: 0.85;">
-          Prije nego kreneš skenirati ili dodavati radove, upiši nadimak ili ime
-          pod kojim želiš biti potpisan uz svoje unose. To ime ćemo koristiti
-          za sve buduće prijave.
+          Prije nego kreneš skenirati ili dodavati radove, upiši nadimak ili
+          ime pod kojim želiš biti potpisan uz svoje unose. To ime ćemo
+          koristiti za sve buduće prijave.
         </p>
 
         <form id="welcome-form" class="mt-2">
@@ -161,7 +161,8 @@
             />
             <div class="hint mt-1">
               Koristi nadimak ili ime koje želiš da se pojavljuje uz radove.
-              Možeš ga kasnije promijeniti u postavkama preglednika (localStorage).
+              Možeš ga kasnije promijeniti u postavkama preglednika
+              (localStorage).
             </div>
           </div>
 
@@ -175,82 +176,58 @@
     <div id="navbar-placeholder"></div>
 
     <script>
-  document.addEventListener("DOMContentLoaded", async () => {
-    const form = document.getElementById("welcome-form");
-    const input = document.getElementById("username");
+      document.addEventListener("DOMContentLoaded", async () => {
+        const form = document.getElementById("welcome-form");
+        const input = document.getElementById("username");
 
-    // 1) osiguraj anon auth
-    const user = await ensureAnonAuth();
-    console.log("Anon user:", user?.id);
+        // 1) osiguraj anon auth
+        const user = await ensureAnonAuth();
+        console.log("Anon user:", user?.id);
 
-    // 2) ako već ima nickname (localStorage ili submitter_profiles),
-    // preskoči ekran i idi na aplikaciju
-    const existing = await ensureNickname();
-    if (existing) {
-      input.value = existing;
-      window.location.href = "scan.html";
-      return;
-    }
-
-    // 3) ako nema profila -> koristimo formu za prvi odabir nadimka
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const candidate = input.value.trim();
-      if (!candidate) {
-        input.focus();
-        return;
-      }
-
-      // provjera: koristi li taj nadimak NETKO DRUGI
-      const { data: taken, error } = await supabaseClient
-        .from("submitter_profiles")
-        .select("owner_id")
-        .eq("nickname", candidate)
-        .maybeSingle();
-
-      if (error) {
-        console.error("check nickname error", error);
-        alert("Dogodila se greška pri provjeri imena. Pokušaj ponovo.");
-        return;
-      }
-
-      // ako nadimak postoji za nekog drugog usera -> blokiraj
-      if (taken && taken.owner_id !== user.id) {
-        alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
-        return;
-      }
-
-      // ako već postoji red s ovim owner_id i ovim nicknameom,
-      // ne radimo novi insert – samo ga prihvatimo
-      if (!taken) {
-        const { error: insertError } = await supabaseClient
-          .from("submitter_profiles")
-          .insert({
-            owner_id: user.id,
-            nickname: candidate
-          });
-
-        if (insertError) {
-          console.error("insert nickname error", insertError);
-          alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
+        // 2) ako već ima nickname (localStorage ili submitter_profiles),
+        // preskoči ekran i idi na aplikaciju
+        const existing = await ensureNickname();
+        if (existing) {
+          input.value = existing;
+          window.location.href = "scan.html";
           return;
         }
-      }
 
-      setStoredUsername(candidate);
-      window.location.href = "scan.html";
-    });
+        // 3) ako nema profila -> koristimo formu za prvi odabir nadimka
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const candidate = input.value.trim();
+          if (!candidate) {
+            input.focus();
+            return;
+          }
 
-    // Navbar
-    fetch("navbar.html")
-      .then((res) => res.text())
-      .then((html) => {
-        document.getElementById("navbar-placeholder").innerHTML = html;
-        // ovdje i dalje ne moramo imati aktivan tab
+          // ovdje više ne provjeravamo zauzetost globalno – svaki user ima svoj profil
+          const { error: insertError } = await supabaseClient
+            .from("submitter_profiles")
+            .insert({
+              owner_id: user.id,
+              nickname: candidate
+            });
+
+          if (insertError) {
+            console.error("insert nickname error", insertError);
+            alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
+            return;
+          }
+
+          setStoredUsername(candidate);
+          window.location.href = "scan.html";
+        });
+
+        // Navbar
+        fetch("navbar.html")
+          .then((res) => res.text())
+          .then((html) => {
+            document.getElementById("navbar-placeholder").innerHTML = html;
+          });
       });
-  });
-</script>
-
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
