@@ -46,46 +46,31 @@ function setStoredUsername(name) {
   }
 }
 
-// Dohvati nickname iz submitter_profiles za trenutnog usera
-async function fetchProfileNickname() {
-  const user = await ensureAnonAuth();
-  if (!user) return null;
-
-  const { data, error } = await supabaseClient
-    .from("submitter_profiles")
-    .select("nickname")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("fetchProfileNickname error", error);
-    return null;
-  }
-
-  return data?.nickname || null;
-}
-
-// Glavni helper: pobrini se da user ima jedinstveni nickname
-async function ensureNickname() {// Glavni helper: pobrini se da user ima jedinstveni nickname
+// Glavni helper: osiguraj da user ima neki nickname
 async function ensureNickname() {
-  // 1) probaj iz localStorage
+  // 1) iz localStorage
   let name = getStoredUsername();
   if (name) return name;
 
-  // 2) probaj iz Supabase profila za ovog usera
-  const profileNick = await fetchProfileNickname();
-  if (profileNick) {
-    setStoredUsername(profileNick);
-    return profileNick;
-  }
-
-  // 3) ako nema profila, traži novi nadimak
+  // 2) iz submitter_profiles za ovog usera
   const user = await ensureAnonAuth();
   if (!user) {
     alert("Greška pri prijavi korisnika.");
     return null;
   }
 
+  const { data: profile, error } = await supabaseClient
+    .from("submitter_profiles")
+    .select("nickname")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  if (!error && profile?.nickname) {
+    setStoredUsername(profile.nickname);
+    return profile.nickname;
+  }
+
+  // 3) nema profila -> pitaj usera i SPREMI (bez globalne provjere duplikata)
   while (true) {
     const input = prompt(
       "Kako želiš da te potpisujemo uz tvoje radove? (nadimak ili ime)",
@@ -99,33 +84,6 @@ async function ensureNickname() {
     const candidate = input.trim();
     if (!candidate) continue;
 
-    // provjera: postoji li neki profil s tim nadimkom
-    const { data: taken, error } = await supabaseClient
-      .from("submitter_profiles")
-      .select("owner_id")
-      .eq("nickname", candidate)
-      .maybeSingle();
-
-    if (error) {
-      console.error("check nickname error", error);
-      alert("Dogodila se greška pri provjeri imena. Pokušaj ponovo.");
-      continue;
-    }
-
-    // ako nadimak postoji i pripada BAŠ ovom useru,
-    // samo ga prihvati i spremi lokalno (bez novog inserta)
-    if (taken && taken.owner_id === user.id) {
-      setStoredUsername(candidate);
-      return candidate;
-    }
-
-    // ako nadimak postoji za nekog DRUGOG usera -> blokiraj
-    if (taken && taken.owner_id !== user.id) {
-      alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
-      continue;
-    }
-
-    // ovdje znamo da nadimak NE postoji -> pokušaj insert
     const { error: insertError } = await supabaseClient
       .from("submitter_profiles")
       .insert({
@@ -142,6 +100,4 @@ async function ensureNickname() {
     setStoredUsername(candidate);
     return candidate;
   }
-}
-
 }
