@@ -67,18 +67,18 @@ async function fetchProfileNickname() {
 
 // Glavni helper: pobrini se da user ima jedinstveni nickname
 async function ensureNickname() {
-  // 1) localStorage
+  // 1) probaj iz localStorage
   let name = getStoredUsername();
   if (name) return name;
 
-  // 2) Supabase profil vezan uz ovog usera
+  // 2) probaj iz Supabase profila za ovog usera
   const profileNick = await fetchProfileNickname();
   if (profileNick) {
     setStoredUsername(profileNick);
     return profileNick;
   }
 
-  // 3) novi nadimak – pitaj usera i provjeri da netko DRUGI nema to ime
+  // 3) ako nema profila, traži novi nadimak
   const user = await ensureAnonAuth();
   if (!user) {
     alert("Greška pri prijavi korisnika.");
@@ -98,7 +98,7 @@ async function ensureNickname() {
     const candidate = input.trim();
     if (!candidate) continue;
 
-    // provjera duplikata: je li taj nick već zauzet od NEKOG DRUGOG usera
+    // provjera: koristi li taj nadimak NETKO DRUGI
     const { data: taken, error } = await supabaseClient
       .from("submitter_profiles")
       .select("owner_id")
@@ -112,12 +112,12 @@ async function ensureNickname() {
     }
 
     if (taken && taken.owner_id !== user.id) {
-      // netko drugi koristi taj nickname
+      // netko DRUGI već ima to ime → ne dopuštamo
       alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
       continue;
     }
 
-    // ako postoji zapis s istim owner_id (npr. stari), nećemo raditi novi insert
+    // ako postoji zapis s ovim owner_id i ovim nicknameom, ne radimo novi insert
     if (!taken) {
       const { error: insertError } = await supabaseClient
         .from("submitter_profiles")
