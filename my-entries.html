@@ -273,8 +273,11 @@
       const { data, error } = await supabaseClient
   .from("artwork_submissions")
   .select("*")
-  .eq("owner_id", user.id)        // samo unosi ovog usera
+  .eq("owner_id", user.id)
+  .not("owner_id", "is", null)
+  .eq("submitted_by", nickname)
   .order("created_at", { ascending: false });
+
 
 
       if (error) {
