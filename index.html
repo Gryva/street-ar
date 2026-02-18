@@ -175,82 +175,82 @@
     <div id="navbar-placeholder"></div>
 
     <script>
-      document.addEventListener("DOMContentLoaded", async () => {
-        const form = document.getElementById("welcome-form");
-        const input = document.getElementById("username");
+  document.addEventListener("DOMContentLoaded", async () => {
+    const form = document.getElementById("welcome-form");
+    const input = document.getElementById("username");
 
-        // osiguraj anon auth na prvom ulazu
-        const user = await ensureAnonAuth();
-        console.log("Anon user:", user?.id);
+    // 1) osiguraj anon auth
+    const user = await ensureAnonAuth();
+    console.log("Anon user:", user?.id);
 
-        // ako već postoji nickname u profilu/localStorage, preskoči ekran
-        const existing = await ensureNickname();
-        if (existing) {
-          input.value = existing;
-          window.location.href = "scan.html";
+    // 2) ako već ima nickname (localStorage ili submitter_profiles),
+    // preskoči ekran i idi na aplikaciju
+    const existing = await ensureNickname();
+    if (existing) {
+      input.value = existing;
+      window.location.href = "scan.html";
+      return;
+    }
+
+    // 3) ako nema profila -> koristimo formu za prvi odabir nadimka
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const candidate = input.value.trim();
+      if (!candidate) {
+        input.focus();
+        return;
+      }
+
+      // provjera: koristi li taj nadimak NETKO DRUGI
+      const { data: taken, error } = await supabaseClient
+        .from("submitter_profiles")
+        .select("owner_id")
+        .eq("nickname", candidate)
+        .maybeSingle();
+
+      if (error) {
+        console.error("check nickname error", error);
+        alert("Dogodila se greška pri provjeri imena. Pokušaj ponovo.");
+        return;
+      }
+
+      // ako nadimak postoji za nekog drugog usera -> blokiraj
+      if (taken && taken.owner_id !== user.id) {
+        alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
+        return;
+      }
+
+      // ako već postoji red s ovim owner_id i ovim nicknameom,
+      // ne radimo novi insert – samo ga prihvatimo
+      if (!taken) {
+        const { error: insertError } = await supabaseClient
+          .from("submitter_profiles")
+          .insert({
+            owner_id: user.id,
+            nickname: candidate
+          });
+
+        if (insertError) {
+          console.error("insert nickname error", insertError);
+          alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
           return;
         }
+      }
 
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const name = input.value.trim();
-          if (!name) {
-            input.focus();
-            return;
-          }
+      setStoredUsername(candidate);
+      window.location.href = "scan.html";
+    });
 
-          const candidate = name.trim();
-          if (!candidate) return;
-
-          const { data: taken, error } = await supabaseClient
-            .from("submitter_profiles")
-            .select("id")
-            .eq("nickname", candidate)
-            .maybeSingle();
-
-          if (error) {
-            console.error("check nickname error", error);
-            alert("Dogodila se greška pri provjeri imena. Pokušaj ponovo.");
-            return;
-          }
-
-          if (taken) {
-            alert("To korisničko ime već koristi netko drugi. Odaberi drugo.");
-            return;
-          }
-
-          const { error: insertError } = await supabaseClient
-            .from("submitter_profiles")
-            .insert({
-              owner_id: user.id,
-              nickname: candidate
-            });
-
-          if (insertError) {
-            console.error("insert nickname error", insertError);
-            alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
-            return;
-          }
-
-          setStoredUsername(candidate);
-          window.location.href = "scan.html";
-        });
-
-        // Navbar
-        fetch("navbar.html")
-          .then((res) => res.text())
-          .then((html) => {
-            document.getElementById("navbar-placeholder").innerHTML = html;
-            // na welcome ekranu nema aktivnog taba (ili stavi "scan" ako želiš)
-            // const current = "scan";
-            // document
-            //   .querySelectorAll("#navbar .nav-item")
-            //   .forEach((item) => {
-            //     if (item.dataset.tab === current) item.classList.add("active");
-            //   });
-          });
+    // Navbar
+    fetch("navbar.html")
+      .then((res) => res.text())
+      .then((html) => {
+        document.getElementById("navbar-placeholder").innerHTML = html;
+        // ovdje i dalje ne moramo imati aktivan tab
       });
-    </script>
+  });
+</script>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
