@@ -557,9 +557,24 @@
             return;
           }
 
-          // GPS iz drafta
-          currentLat = data.latitude ?? null;
-          currentLon = data.longitude ?? null;
+                // postojeća slika iz drafta -> prikaži je u cropperu
+      if (data.image_path) {
+        const { data: imgData } = supabaseClient.storage
+          .from("submissions")
+          .getPublicUrl(data.image_path);
+
+        const imgUrl = imgData?.publicUrl;
+        if (imgUrl) {
+          imgFromScan = false;               // slika iz drafta
+          imageLabel.style.display = "none"; // sakrij "Odaberi datoteku"
+          showImageForCrop(imgUrl);          // otvori cropper s postojećom slikom
+        }
+      }
+
+      // GPS iz drafta  (ovo je tvoj postojeći kod)
+      currentLat = data.latitude ?? null;
+      currentLon = data.longitude ?? null;
+
 
           if (currentLat && currentLon) {
             locInfo.textContent =
