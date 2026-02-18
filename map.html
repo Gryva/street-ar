@@ -20,15 +20,15 @@
   />
 
   <style>
-    /* Link unutar Leaflet popup prozora – uvijek bijel, bez podcrtavanja */
-.leaflet-popup-content a.popup-button,
-.leaflet-popup-content a.popup-button:link,
-.leaflet-popup-content a.popup-button:visited,
-.leaflet-popup-content a.popup-button:hover,
-.leaflet-popup-content a.popup-button:active {
-  color: #ffffff !important;
-  text-decoration: none;
-}
+  /* Link unutar Leaflet popup prozora – uvijek bijel, bez podcrtavanja */
+  .leaflet-popup-content a.popup-button,
+  .leaflet-popup-content a.popup-button:link,
+  .leaflet-popup-content a.popup-button:visited,
+  .leaflet-popup-content a.popup-button:hover,
+  .leaflet-popup-content a.popup-button:active {
+    color: #ffffff !important;
+    text-decoration: none;
+  }
 
     body {
       margin: 0;
@@ -38,7 +38,6 @@
       color: #fff;
     }
 
-    /* Header maknut – samo zadržavamo visinu preko calc u map-containeru */
     header {
       height: 0;
       margin: 0;
@@ -76,7 +75,7 @@
       font-size: 9px;
     }
 
-    /* Popup stil – usklađen s drugim ekranima (gradient + glow) */
+    /* Popup stil */
     .leaflet-popup-content-wrapper {
       background: linear-gradient(145deg, #050505 0%, #111111 45%, #15181f 100%);
       color: #fff;
@@ -136,30 +135,87 @@
     }
 
     .popup-button {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 11px;
-  padding: 7px 8px;
-  border-radius: 999px;
-  background: radial-gradient(
-    circle at top left,
-    rgba(255, 255, 255, 0.14),
-    rgba(0, 0, 0, 0.95)
-  );
-  color: #ffffff; /* ← tekst 100% bijel */
-  text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-  transition: transform 0.12s ease, box-shadow 0.12s ease,
-    border-color 0.12s ease;
-}
-
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      padding: 7px 8px;
+      border-radius: 999px;
+      background: radial-gradient(
+        circle at top left,
+        rgba(255, 255, 255, 0.14),
+        rgba(0, 0, 0, 0.95)
+      );
+      color: #ffffff;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+      transition: transform 0.12s ease, box-shadow 0.12s ease,
+        border-color 0.12s ease;
+    }
     .popup-button:hover {
       box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
       border-color: rgba(255, 215, 0, 0.7);
       transform: translateY(-1px);
+    }
+
+    /* Search bar iznad mape – pomaknut da ne dira zoom kontrole */
+    #search-bar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  width: 100%;
+  max-width: 480px;      /* malo smanji max širinu */
+  padding: 0 12px;       /* unutarnji padding umjesto calc */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.search-wrapper {
+  position: relative;
+  flex: 1;
+  pointer-events: auto;
+}
+.search-wrapper::before {
+  content: "🔍";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+    #search-input {
+  width: 100%;
+  padding: 9px 14px 9px 30px;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  font-family: "Roboto Condensed", system-ui, sans-serif;
+  font-size: 14px;
+  outline: none;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
+}
+    #search-input::placeholder {
+      color: #848484;
+    }
+    #search-input:focus {
+      border-color: #ffd700;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.55);
+      background: rgba(10, 10, 10, 0.96);
+    }
+
+    /* maknut vanjski button – koristimo Enter u inputu */
+    #search-button {
+      display: none;
     }
   </style>
 </head>
@@ -167,6 +223,19 @@
   <header></header>
 
   <div id="map-container">
+    <!-- search bar -->
+    <div id="search-bar">
+  <div class="search-wrapper">
+    <input
+      id="search-input"
+      type="text"
+      placeholder="Traži po autoru ili imenu rada…"
+    />
+  </div>
+  <button id="search-button">Traži</button>
+</div>
+
+
     <div id="map"></div>
   </div>
 
@@ -181,6 +250,8 @@
 
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth) -->
+  <script src="auth.js"></script>
 
   <script>
     // Navbar
@@ -196,16 +267,9 @@
           });
       });
 
-    // Supabase client
-    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY =
-      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
-    const { createClient } = supabase;
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
-    // Leaflet mapa – klasični OpenStreetMap tiles
+    // Leaflet mapa
     const map = L.map("map", {
-      zoomControl: true,
+      zoomControl: false,
       maxZoom: 19
     }).setView([46.3057, 16.3366], 14);
 
@@ -215,7 +279,6 @@
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
-    // Crveni pin icon
     const redIcon = L.icon({
       iconUrl:
         "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -227,8 +290,9 @@
       shadowSize: [41, 41]
     });
 
-    // Grupa svih markera da kasnije možemo fitBounds
     const markersLayer = L.featureGroup().addTo(map);
+    let allApproved = [];
+    let markerById = {};
 
     function popupHtml(item) {
       const title = item.title || "(bez naslova)";
@@ -261,6 +325,8 @@
     }
 
     async function loadApprovedLocations() {
+      await ensureAnonAuth();
+
       const { data, error } = await supabaseClient
         .from("artwork_submissions")
         .select("*")
@@ -278,6 +344,10 @@
         return;
       }
 
+      allApproved = data;
+      markerById = {};
+      markersLayer.clearLayers();
+
       data.forEach((item) => {
         const lat = item.latitude;
         const lng = item.longitude;
@@ -285,6 +355,7 @@
 
         const marker = L.marker([lat, lng], { icon: redIcon }).addTo(markersLayer);
         marker.bindPopup(popupHtml(item), { maxWidth: 260 });
+        markerById[item.id] = marker;
       });
 
       if (markersLayer.getLayers().length > 0) {
@@ -293,6 +364,58 @@
         });
       }
     }
+
+    const searchInput = document.getElementById("search-input");
+
+    function performSearch() {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        markersLayer.clearLayers();
+        allApproved.forEach((item) => {
+          const marker = markerById[item.id];
+          if (marker) markersLayer.addLayer(marker);
+        });
+        if (markersLayer.getLayers().length > 0) {
+          map.fitBounds(markersLayer.getBounds(), { padding: [40, 40] });
+        }
+        return;
+      }
+
+      const matches = allApproved.filter((item) => {
+        const title = (item.title || "").toLowerCase();
+        const artist = (item.artist_name || "").toLowerCase();
+        return title.includes(q) || artist.includes(q);
+      });
+
+      markersLayer.clearLayers();
+
+      if (!matches.length) {
+        return;
+      }
+
+      matches.forEach((item) => {
+        const marker = markerById[item.id];
+        if (marker) markersLayer.addLayer(marker);
+      });
+
+      if (matches.length === 1) {
+        const item = matches[0];
+        const marker = markerById[item.id];
+        if (marker) {
+          map.setView(marker.getLatLng(), 17, { animate: true });
+          marker.openPopup();
+        }
+      } else {
+        map.fitBounds(markersLayer.getBounds(), { padding: [40, 40] });
+      }
+    }
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        performSearch();
+      }
+    });
 
     loadApprovedLocations();
   </script>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload artwork</title>
+</head>
+<body>
+  <h1>Upload artwork</h1>
+
+  <div>
+    <label>Slika: <input type="file" id="file" accept="image/*" /></label>
+  </div>
+  <div>
+    <label>Naslov: <input type="text" id="title" value="Test sticker" /></label>
+  </div>
+  <div>
+    <label>Autor: <input type="text" id="author" value="Netko" /></label>
+  </div>
+  <div>
+    <label>Opis: <input type="text" id="description" value="Test opis" /></label>
+  </div>
+  <div>
+    <label>Kategorija:
+      <select id="category">
+        <option value="sticker">Sticker</option>
+        <option value="mural">Mural</option>
+        <option value="graffiti">Graffiti</option>
+        <option value="poster">Poster</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+  </div>
+  <div>
+    <label>Lat: <input type="number" id="lat" step="0.000001" value="46.30" /></label>
+  </div>
+  <div>
+    <label>Lng: <input type="number" id="lng" step="0.000001" value="16.30" /></label>
+  </div>
+  <div>
+    <label>Lokacija tekst: <input type="text" id="location_text" value="Negdje u Varaždinu" /></label>
+  </div>
+
+  <button id="btn">Upload + spremi artwork</button>
+
+  <pre id="out"></pre>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
+    const ANON_KEY = "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
+    const supabase = createClient(SUPABASE_URL, ANON_KEY);
+
+    const FUNCTION_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co/functions/v1/create-artwork";
+    const BUCKET = "artworks";
+
+    const btn = document.getElementById("btn");
+    const out = document.getElementById("out");
+
+    btn.addEventListener("click", async () => {
+      out.textContent = "Krećem...";
+
+      const fileInput = document.getElementById("file");
+      const file = fileInput.files[0];
+
+      if (!file) {
+        out.textContent = "Odaberi sliku!";
+        return;
+      }
+
+      const title = document.getElementById("title").value;
+      const author = document.getElementById("author").value;
+      const description = document.getElementById("description").value;
+      const category = document.getElementById("category").value;
+      const lat = parseFloat(document.getElementById("lat").value);
+      const lng = parseFloat(document.getElementById("lng").value);
+      const location_text = document.getElementById("location_text").value;
+
+      try {
+        // 1) upload slike u Storage
+        const ext = file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${ext}`;
+        const filePath = `artworks/${fileName}`; // pod-folder u bucketu
+
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from(BUCKET)
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error(uploadError);
+          out.textContent = "Greška pri uploadu slike:\n" + JSON.stringify(uploadError, null, 2);
+          return;
+        }
+
+        // image_path koji spremamo u tablicu
+        const image_path = uploadData.path; // npr. "artworks/uuid.jpg"
+
+        // 2) pozovi edge funkciju
+        const res = await fetch(FUNCTION_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            image_path,
+            title,
+            author,
+            description,
+            category,
+            lat,
+            lng,
+            location_text
+          })
+        });
+
+        const json = await res.json();
+        out.textContent = JSON.stringify(json, null, 2);
+      } catch (e) {
+        out.textContent = "Error: " + e.message;
+      }
+    });
+  </script>
+</body>
+</html>

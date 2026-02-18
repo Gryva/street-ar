@@ -7,6 +7,8 @@
 
     <!-- Supabase JS (browser UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname) -->
+    <script src="auth.js"></script>
 
     <!-- Cropper.js CSS & JS -->
     <link
@@ -254,16 +256,6 @@
         z-index: 50;
       }
 
-      .field-row-inline {
-        display: flex;
-        justify-content: center;
-        margin-top: 10px;
-      }
-
-      .field-row-inline button {
-        margin-top: 0;
-      }
-
       .hint {
         font-size: 11px;
         opacity: 0.75;
@@ -282,17 +274,6 @@
         color: #ffd700;
         font-size: 11px;
         margin-right: 6px;
-      }
-
-      .loc-icon-btn {
-        width: 56px;
-        height: 56px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 26px;
-        padding: 0;
       }
 
       #submit-btn {
@@ -350,6 +331,13 @@
           rgba(0, 0, 0, 0.96)
         );
       }
+
+      /* Info o korisničkom imenu */
+      #user-info {
+        font-size: 11px;
+        opacity: 0.78;
+        margin-top: 4px;
+      }
     </style>
   </head>
   <body>
@@ -358,6 +346,8 @@
       Na lokaciji si rada. Uslikaj, izreži i dodaj osnovne informacije, a mi ćemo
       ga spojiti s AR iskustvom.
     </p>
+
+    <div id="user-info"></div>
 
     <div class="card" id="main-card">
       <!-- 1. Slika + crop -->
@@ -420,7 +410,11 @@
                 <option value="fotografija">Fotografija</option>
                 <option value="crtez">Crtež</option>
                 <option value="grafit">Grafit</option>
+                <option value="mural">Mural</option>
                 <option value="plakat">Plakat</option>
+                <option value="tag">Tag</option>
+                <option value="sticker">Sticker</option>
+                <option value="pasteup">Pasteup </option>
                 <option value="ostalo">Ostalo</option>
               </select>
             </label>
@@ -434,30 +428,10 @@
               ></textarea>
             </label>
 
-            <label>
-              <span class="field-label-main"
-                >Tvoje ime ili nadimak (neobavezno)</span
-              >
-              <input
-                type="text"
-                id="submitted_by"
-                placeholder="Npr. lunar_123"
-              />
-            </label>
-
+            <!-- Lokacija – info-only, bez gumba -->
             <label>
               <span class="field-label-main">Lokacija rada (GPS)</span>
-              <div class="field-row-inline">
-                <button
-                  type="button"
-                  id="loc-btn"
-                  class="small loc-icon-btn"
-                  aria-label="Dohvati lokaciju"
-                >
-                  📍
-                </button>
-              </div>
-              <div id="loc-info">Lokacija još nije dohvaćena.</div>
+              <div id="loc-info">Lokacija je preuzeta iz skeniranja (ako postoji).</div>
             </label>
 
             <button type="submit" id="submit-btn" class="primary">
@@ -492,19 +466,8 @@
     <div id="navbar-placeholder"></div>
 
     <script>
-      // 1. Supabase client
-      const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
-      const SUPABASE_PUBLISHABLE_KEY =
-        "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
-      const { createClient } = supabase;
-      const supabaseClient = createClient(
-        SUPABASE_URL,
-        SUPABASE_PUBLISHABLE_KEY
-      );
-
       const form = document.getElementById("submission-form");
       const statusEl = document.getElementById("status");
-      const locBtn = document.getElementById("loc-btn");
       const locInfo = document.getElementById("loc-info");
       const imageInput = document.getElementById("image");
       const imageLabel = document.getElementById("image-label");
@@ -525,6 +488,7 @@
       const thankyouScreen = document.getElementById("thankyou-screen");
       const btnGoScan = document.getElementById("btn-go-scan");
       const btnOpenDetail = document.getElementById("btn-open-detail");
+      const userInfo = document.getElementById("user-info");
 
       let currentLat = null;
       let currentLon = null;
@@ -532,13 +496,104 @@
       let imgFromScan = false;
       let cropper = null;
       let lastInsertedId = null;
+      let draftId = null;
 
       function setStatus(msg) {
         statusEl.textContent = msg;
         console.log(msg);
       }
 
-      // ---------- Cropper.js logika ----------
+      // Pokaži pod kojim imenom user trenutno šalje rad + osiguraj anon auth
+      document.addEventListener("DOMContentLoaded", async () => {
+        // auth user (anon ako treba)
+        const user = await ensureAnonAuth();
+        console.log("submit user:", user?.id);
+
+        const nickname = await ensureNickname();
+        if (nickname) {
+          userInfo.textContent =
+            "Trenutno šalješ radove pod korisničkim imenom: " + nickname;
+        } else {
+          userInfo.textContent =
+            "Rad će biti poslan anonimno (bez korisničkog imena).";
+        }
+
+        // ako dolazimo iz scana u edit-draft modu, učitaj draft i GPS
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        const mode = params.get("mode");
+        if (id && mode === "edit-draft") {
+          draftId = id;
+          await loadDraft(id);
+        }
+
+        // Navbar
+        fetch("navbar.html")
+          .then((res) => res.text())
+          .then((html) => {
+            document.getElementById("navbar-placeholder").innerHTML = html;
+            const current = "submit";
+            document
+              .querySelectorAll("#navbar .nav-item")
+              .forEach((item) => {
+                if (item.dataset.tab === current)
+                  item.classList.add("active");
+              });
+          });
+      });
+
+      async function loadDraft(id) {
+        try {
+          setStatus("Učitavam draft rada...");
+          const { data, error } = await supabaseClient
+            .from("artwork_submissions")
+            .select("*")
+            .eq("id", id)
+            .single();
+
+          if (error || !data) {
+            console.error(error);
+            setStatus("Ne mogu učitati draft rada.");
+            return;
+          }
+
+          // GPS iz drafta
+          currentLat = data.latitude ?? null;
+          currentLon = data.longitude ?? null;
+
+          if (currentLat && currentLon) {
+            locInfo.textContent =
+              "Lokacija iz skeniranja ✔\nŠirina: " +
+              currentLat.toFixed(6) +
+              "\nDuljina: " +
+              currentLon.toFixed(6);
+          } else {
+            locInfo.textContent =
+              "Lokacija iz skeniranja nije dostupna.";
+          }
+
+          // ako već imamo podatke u draftu, možeš ih i prefillati
+          if (data.artist_name) {
+            document.getElementById("artist_name").value = data.artist_name;
+          }
+          if (data.title) {
+            document.getElementById("title").value = data.title;
+          }
+          if (data.type) {
+            document.getElementById("type").value = data.type;
+          }
+          if (data.description) {
+            document.getElementById("description").value = data.description;
+          }
+
+          setStatus("");
+        } catch (e) {
+          console.error(e);
+          setStatus("Greška pri učitavanju drafta.");
+        }
+      }
+
+      // Cropper.js logika
       imageInput.addEventListener("change", () => {
         const file = imageInput.files[0];
         if (!file) {
@@ -627,7 +682,6 @@
             previewImg.src = previewUrl;
             previewImg.style.display = "block";
             formFields.style.display = "block";
-            // makni tekst o podešavanju kadra nakon potvrde
             setStatus("");
           },
           "image/jpeg",
@@ -645,35 +699,7 @@
         showImageForCrop(pendingImageDataUrl);
       }
 
-      // 3. Dohvat lokacije
-      locBtn.addEventListener("click", () => {
-        if (!navigator.geolocation) {
-          locInfo.textContent = "Ovaj uređaj ne podržava GPS.";
-          return;
-        }
-        locInfo.textContent = "Dohvaćam lokaciju, pričekaj...";
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            currentLat = pos.coords.latitude;
-            currentLon = pos.coords.longitude;
-            locInfo.textContent =
-              "Lokacija dohvaćena ✔\nŠirina: " +
-              currentLat.toFixed(6) +
-              "\nDuljina: " +
-              currentLon.toFixed(6);
-          },
-          (err) => {
-            console.error(err);
-            locInfo.textContent =
-              "Ne mogu dohvatiti lokaciju (" +
-              err.message +
-              "). Pokušaj ponovno i provjeri dopuštenja.";
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      });
-
-      // 4. Upload slike u Storage (koristi CROPPANI file)
+      // Upload slike u Storage (koristi CROPPANI file)
       async function uploadImage(file) {
         const ext = (file.name && file.name.split(".").pop()) || "jpg";
         const fileName = crypto.randomUUID() + "." + ext;
@@ -699,11 +725,10 @@
         step1Title.classList.add("hidden");
         submitFlow.classList.add("hidden");
         thankyouScreen.classList.remove("hidden");
-        // očisti status indikator
         setStatus("");
       }
 
-      // 5. Submit forme
+      // Submit forme (INSERT ili UPDATE ovisno o draftId)
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         setStatus("");
@@ -720,8 +745,6 @@
         const type = document.getElementById("type").value;
         const description =
           document.getElementById("description").value.trim() || null;
-        const submittedBy =
-          document.getElementById("submitted_by").value.trim() || null;
 
         if (!artistName || !title || !type) {
           setStatus(
@@ -729,6 +752,10 @@
           );
           return;
         }
+
+        const submittedBy = await ensureNickname(); // display nickname
+        const user = await ensureAnonAuth();
+        const ownerId = user?.id || null;
 
         setStatus("Učitavam sliku, pričekaj...");
         submitBtn.disabled = true;
@@ -738,21 +765,46 @@
 
           setStatus("Spremam podatke o radu...");
 
-          const { data, error } = await supabaseClient
-            .from("artwork_submissions")
-            .insert({
-              artist_name: artistName,
-              title,
-              type,
-              description,
-              latitude: currentLat,
-              longitude: currentLon,
-              submitted_by: submittedBy,
-              image_path: imagePath,
-              status: "pending"
-            })
-            .select("id")
-            .single();
+          let data, error;
+
+          if (draftId) {
+            // EDIT POSTOJEĆEG DRAFT RADA -> UPDATE u pending
+            ({ data, error } = await supabaseClient
+              .from("artwork_submissions")
+              .update({
+                artist_name: artistName,
+                title,
+                type,
+                description,
+                latitude: currentLat,
+                longitude: currentLon,
+                submitted_by: submittedBy,
+                owner_id: ownerId,
+                image_path: imagePath,
+                status: "pending"
+              })
+              .eq("id", draftId)
+              .select("id")
+              .single());
+          } else {
+            // NOVI RAD -> INSERT kao pending
+            ({ data, error } = await supabaseClient
+              .from("artwork_submissions")
+              .insert({
+                artist_name: artistName,
+                title,
+                type,
+                description,
+                latitude: currentLat,
+                longitude: currentLon,
+                submitted_by: submittedBy,
+                owner_id: ownerId,
+                image_path: imagePath,
+                status: "pending"
+              })
+              .select("id")
+              .single());
+          }
 
           if (error) {
             console.error(error);
@@ -765,7 +817,6 @@
 
           lastInsertedId = data?.id || null;
 
-          // prikaži thank-you ekran
           showThankYouScreen();
           submitBtn.disabled = false;
         } catch (err) {
@@ -785,24 +836,9 @@
           window.location.href =
             "detail.html?id=" + encodeURIComponent(lastInsertedId);
         } else {
-          // fallback: odvedi na radove
           window.location.href = "entries.html";
         }
       });
-
-      // Navbar
-      fetch("navbar.html")
-        .then((res) => res.text())
-        .then((html) => {
-          document.getElementById("navbar-placeholder").innerHTML = html;
-          const current = "submit";
-          document
-            .querySelectorAll("#navbar .nav-item")
-            .forEach((item) => {
-              if (item.dataset.tab === current)
-                item.classList.add("active");
-            });
-        });
     </script>
   </body>
 </html>

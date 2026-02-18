@@ -6,6 +6,8 @@
   <title>Street AR – Detalji rada</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth) -->
+  <script src="auth.js"></script>
 
   <!-- Roboto Condensed s latin-ext za ČĆŠŽ -->
   <link
@@ -360,12 +362,6 @@
   </div>
 
   <script>
-    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY =
-      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
-    const { createClient } = supabase;
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
     const statusEl = document.getElementById("status");
     const contentEl = document.getElementById("content");
     const actionsEl = document.getElementById("actions");
@@ -413,6 +409,10 @@
       }
 
       statusEl.textContent = "Učitavam rad...";
+
+      // auth je opcionalan ovdje (public approved policy pokriva approved),
+      // ali zbog pending / own submissions i konzistentnosti:
+      await ensureAnonAuth();
 
       const { data, error } = await supabaseClient
         .from("artwork_submissions")
@@ -504,6 +504,7 @@
         .select("*")
         .ilike("artist_name", artistName)
         .neq("id", currentItem.id)
+        .eq("status", "approved")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -541,7 +542,9 @@
       otherEmpty.style.display = "none";
     }
 
-    loadArtwork();
+    document.addEventListener("DOMContentLoaded", () => {
+      loadArtwork();
+    });
   </script>
 </body>
 </html>

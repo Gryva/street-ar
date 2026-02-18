@@ -6,6 +6,8 @@
   <title>Street AR – Unosi</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth) -->
+  <script src="auth.js"></script>
 
   <!-- Roboto Condensed s latin-ext -->
   <link
@@ -124,30 +126,6 @@
       color: #ffd700;
     }
 
-    .status-pill {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 999px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-top: 4px;
-      width: auto;
-      white-space: nowrap;
-    }
-    .status-pending {
-      background: #664400;
-      color: #ffdd99;
-    }
-    .status-approved {
-      background: #004d26;
-      color: #8dffb9;
-    }
-    .status-rejected {
-      background: #4d0000;
-      color: #ff9a9a;
-    }
-
     #navbar-placeholder {
       position: fixed;
       left: 0;
@@ -216,7 +194,7 @@
     </section>
 
     <section id="all-entries-section">
-      <h2 id="all-title">Svi radovi</h2>
+      <h2 id="all-title">Svi odobreni radovi</h2>
       <div id="all-entries"></div>
     </section>
   </main>
@@ -224,36 +202,16 @@
   <div id="navbar-placeholder"></div>
 
   <script>
-    const SUPABASE_URL = "https://gppxvrknlnqzlzhcmstw.supabase.co";
-    const SUPABASE_PUBLISHABLE_KEY =
-      "sb_publishable_mnjwFbje0KmPYbUGnw-DRA_6V24GF0n";
-    const { createClient } = supabase;
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
     const statusEl = document.getElementById("status");
     const myEntriesEl = document.getElementById("my-entries");
     const allEntriesEl = document.getElementById("all-entries");
     const myNameInput = document.getElementById("my-name-input");
-    const allSection = document.getElementById("all-entries-section");
 
-    let allSubmissions = [];
-
-    function statusPill(status) {
-      const s = (status || "pending").toLowerCase();
-      if (s === "approved") {
-        return '<span class="status-pill status-approved">APPROVED</span>';
-      } else if (s === "rejected") {
-        return '<span class="status-pill status-rejected">DENIED</span>';
-      } else {
-        return '<span class="status-pill status-pending">PENDING</span>';
-      }
-    }
+    // Uvijek radimo samo s APPROVED radovima
+    let approvedSubmissions = [];
 
     // helper: render kartice rada
-    // dimAuthor: kad tražimo po submitted_by, autor ide bijelo
-    // highlightSubmitter: poslao: žut samo kad query matchea submitted_by
-    // showStatus: prikaz pill-a samo kad se traži po submitted_by
-    function entryHtml(item, dimAuthor, highlightSubmitter, showStatus) {
+    function entryHtml(item, dimAuthor, highlightSubmitter) {
       const title = item.title || "(bez naslova)";
       const artist = item.artist_name || "Nepoznat autor";
       const submitter = item.submitted_by || "anonimno";
@@ -265,7 +223,6 @@
 
       const detailUrl = "detail.html?id=" + encodeURIComponent(item.id);
 
-      const statusHtml = showStatus ? statusPill(item.status) : "";
       const submitterClass = highlightSubmitter ? "submitter-name highlight" : "submitter-name";
       const authorClass = dimAuthor ? "author-name dimmed" : "author-name";
 
@@ -285,7 +242,6 @@
                 <span class="submitter-label">poslao: </span>
                 <span class="${submitterClass}">${submitter}</span>
               </div>
-              ${statusHtml}
             </div>
           </div>
         </a>
@@ -295,9 +251,9 @@
     function renderLists() {
       const query = myNameInput.value.trim().toLowerCase();
 
-      // Ako ima upit, filtriramo po submitted_by, title ili artist_name
-      const mine = query
-        ? allSubmissions.filter((s) => {
+      // Filtriranje samo unutar approved radova
+      const filtered = query
+        ? approvedSubmissions.filter((s) => {
             const sub = (s.submitted_by || "").toLowerCase();
             const title = (s.title || "").toLowerCase();
             const artist = (s.artist_name || "").toLowerCase();
@@ -312,55 +268,48 @@
       myEntriesEl.innerHTML = "";
       if (!query) {
         myEntriesEl.innerHTML =
-          "<p class='helper-text'>Pretraži po nadimku, imenu rada ili autoru.</p>";
-      } else if (!mine.length) {
+          "<p class='helper-text'>Pretraži po nadimku, imenu rada ili autoru (samo odobreni radovi).</p>";
+      } else if (!filtered.length) {
         myEntriesEl.innerHTML =
-          "<p class='helper-text'>Nema unosa koji odgovaraju pretraživanju.</p>";
+          "<p class='helper-text'>Nema odobrenih radova koji odgovaraju pretraživanju.</p>";
       } else {
-        mine.forEach((item) => {
+        filtered.forEach((item) => {
           const sub = (item.submitted_by || "").toLowerCase();
           const matchesSubmitter = sub.includes(query);
-          const dimAuthor = matchesSubmitter;          // autor bijel kad tražimo po 'poslao'
-          const highlightSubmitter = matchesSubmitter; // 'poslao' žut samo tad
-          const showStatus = matchesSubmitter;         // status samo tad
+          const dimAuthor = matchesSubmitter;
+          const highlightSubmitter = matchesSubmitter;
           const div = document.createElement("div");
           div.className = "entry";
-          div.innerHTML = entryHtml(item, dimAuthor, highlightSubmitter, showStatus);
+          div.innerHTML = entryHtml(item, dimAuthor, highlightSubmitter);
           myEntriesEl.appendChild(div);
         });
       }
 
-      // Ako korisnik nešto pretražuje, skrivamo "Svi radovi"
-      if (query) {
-        allSection.style.display = "none";
+      // All approved list (uvijek approved, bez statusa)
+      allEntriesEl.innerHTML = "";
+      if (!approvedSubmissions.length) {
+        allEntriesEl.innerHTML =
+          "<p class='helper-text'>Još nema odobrenih radova.</p>";
       } else {
-        allSection.style.display = "block";
-        allEntriesEl.innerHTML = "";
-
-        // Svi radovi: samo APPROVED, bez status pillova, autor žut, poslao bijel
-        const approvedOnly = allSubmissions.filter(
-          (s) => (s.status || "pending").toLowerCase() === "approved"
-        );
-
-        if (!approvedOnly.length) {
-          allEntriesEl.innerHTML =
-            "<p class='helper-text'>Još nema odobrenih radova.</p>";
-        } else {
-          approvedOnly.forEach((item) => {
-            const div = document.createElement("div");
-            div.className = "entry";
-            div.innerHTML = entryHtml(item, false, false, false);
-            allEntriesEl.appendChild(div);
-          });
-        }
+        approvedSubmissions.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "entry";
+          div.innerHTML = entryHtml(item, false, false);
+          allEntriesEl.appendChild(div);
+        });
       }
     }
 
     async function loadSubmissions() {
       statusEl.textContent = "Učitavam radove...";
+
+      // auth je opcionalan ovdje, ali ok je imati session
+      await ensureAnonAuth();
+
       const { data, error } = await supabaseClient
         .from("artwork_submissions")
         .select("*")
+        .eq("status", "approved")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -370,7 +319,7 @@
         return;
       }
 
-      allSubmissions = data || [];
+      approvedSubmissions = data || [];
       statusEl.textContent = "";
       renderLists();
     }
@@ -383,24 +332,26 @@
       renderLists();
     });
 
-    const savedName = localStorage.getItem("street-ar-submitter-name");
-    if (savedName) {
-      myNameInput.value = savedName;
-    }
+    document.addEventListener("DOMContentLoaded", async () => {
+      const savedName = localStorage.getItem("street-ar-submitter-name");
+      if (savedName) {
+        myNameInput.value = savedName;
+      }
 
-    loadSubmissions();
+      await loadSubmissions();
 
-    fetch("navbar.html")
-      .then((res) => res.text())
-      .then((html) => {
-        document.getElementById("navbar-placeholder").innerHTML = html;
-        const current = location.hash === "#all" ? "entries-all" : "entries-mine";
-        document
-          .querySelectorAll("#navbar .nav-item")
-          .forEach((item) => {
-            if (item.dataset.tab === current) item.classList.add("active");
-          });
-      });
+      fetch("navbar.html")
+        .then((res) => res.text())
+        .then((html) => {
+          document.getElementById("navbar-placeholder").innerHTML = html;
+          const current = "entries-all"; // ovaj tab je "Svi radovi"
+          document
+            .querySelectorAll("#navbar .nav-item")
+            .forEach((item) => {
+              if (item.dataset.tab === current) item.classList.add("active");
+            });
+        });
+    });
   </script>
 </body>
 </html>

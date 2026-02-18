@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Street AR – Moji unosi</title>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname) -->
+  <script src="auth.js"></script>
+
+  <!-- Roboto Condensed -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;600;700&display=swap&subset=latin-ext"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #151515 0%, #000 55%);
+      color: #fff;
+    }
+
+    main {
+      padding: 16px 16px 90px;
+      max-width: 900px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin: 8px 0 4px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .lead {
+      font-size: 13px;
+      opacity: 0.8;
+      margin: 0 0 6px;
+      max-width: 640px;
+    }
+
+    #user-label {
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    #user-label-name {
+      font-weight: 700;
+      color: #ffd700;
+      font-size: 15px;
+    }
+
+    #status {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+
+    #navbar-placeholder {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+    }
+
+    .entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .entry-card {
+      display: flex;
+      gap: 10px;
+      background: linear-gradient(
+        145deg,
+        #050505 0%,
+        #111111 45%,
+        #15181f 100%
+      );
+      border-radius: 10px;
+      border: 1px solid #222;
+      padding: 8px;
+      box-shadow: 0 0 14px rgba(0, 0, 0, 0.7);
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease,
+        border-color 0.12s ease;
+    }
+
+    .entry-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 215, 0, 0.5);
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.18);
+    }
+
+    .entry-thumb {
+      width: 90px;
+      height: 90px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .entry-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .entry-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .entry-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffd700;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entry-meta-line {
+      font-size: 11px;
+      opacity: 0.85;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entry-status-pill {
+      align-self: flex-start;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .status-draft {
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .status-pending {
+      border-color: rgba(255, 215, 0, 0.8);
+      color: #ffd700;
+      background: rgba(255, 215, 0, 0.14);
+    }
+    .status-approved {
+      border-color: rgba(0, 200, 120, 0.8);
+      color: #7dffba;
+      background: rgba(0, 200, 120, 0.18);
+    }
+
+    .entry-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .entry-btn {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: radial-gradient(
+        circle at top left,
+        rgba(255, 255, 255, 0.12),
+        rgba(0, 0, 0, 0.96)
+      );
+      color: #ffffff;
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .entry-btn.small {
+      font-size: 10px;
+      padding: 5px 9px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Moji unosi</h1>
+    <p class="lead">
+      Pregled svih radova koje si poslao ili spremio kao draft. Draftove možeš dovršiti, a odobrene radove otvoriti u detaljima.
+    </p>
+    <div id="user-label">
+      Prijavljen kao <span id="user-label-name">...</span>
+    </div>
+
+    <div id="status">Učitavam tvoje unose...</div>
+    <div id="entries" class="entries-list"></div>
+  </main>
+
+  <div id="navbar-placeholder"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const entriesEl = document.getElementById("entries");
+    const userLabelNameEl = document.getElementById("user-label-name");
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleDateString("hr-HR");
+    }
+
+    function statusClass(status) {
+      if (!status) return "status-draft";
+      const s = status.toLowerCase();
+      if (s === "pending") return "status-pending";
+      if (s === "approved") return "status-approved";
+      return "status-draft";
+    }
+
+    function statusLabel(status) {
+      if (!status) return "draft";
+      const s = status.toLowerCase();
+      if (s === "pending") return "pending";
+      if (s === "approved") return "approved";
+      if (s === "draft") return "draft";
+      return s;
+    }
+
+    async function loadMyEntries() {
+      const user = await ensureAnonAuth();
+      if (!user) {
+        statusEl.textContent =
+          "Ne mogu autentificirati korisnika. Pokušaj ponovno osvježiti stranicu.";
+        return;
+      }
+
+      const nickname = await ensureNickname();
+      if (nickname) {
+        userLabelNameEl.textContent = nickname;
+      } else {
+        userLabelNameEl.textContent = "anonimni korisnik";
+      }
+
+      statusEl.textContent = "Učitavam tvoje unose...";
+
+      const { data, error } = await supabaseClient
+        .from("artwork_submissions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        statusEl.textContent =
+          "Dogodila se greška pri učitavanju tvojih unosa: " + error.message;
+        return;
+      }
+
+      if (!data || !data.length) {
+        statusEl.textContent =
+          "Još nemaš nijedan unos. Možeš krenuti iz skeniranja ili forme za slanje rada.";
+        return;
+      }
+
+      statusEl.style.display = "none";
+      entriesEl.innerHTML = "";
+
+      data.forEach((item) => {
+        const lowerStatus = (item.status || "").toLowerCase();
+
+        // destinacija ovisi o statusu
+        const targetHref =
+          lowerStatus === "draft"
+            ? "submit.html?id=" +
+              encodeURIComponent(item.id) +
+              "&mode=edit-draft"
+            : "detail.html?id=" + encodeURIComponent(item.id);
+
+        const card = document.createElement("div");
+        card.className = "entry-card";
+        card.addEventListener("click", () => {
+          window.location.href = targetHref;
+        });
+
+        const thumb = document.createElement("div");
+        thumb.className = "entry-thumb";
+
+        const { data: imgData } = supabaseClient.storage
+          .from("submissions")
+          .getPublicUrl(item.image_path || "");
+        const imgUrl = imgData?.publicUrl || "";
+
+        if (imgUrl) {
+          const img = document.createElement("img");
+          img.src = imgUrl;
+          img.alt = item.title || "(bez naslova)";
+          thumb.appendChild(img);
+        } else {
+          thumb.textContent = "Bez slike";
+        }
+
+        const body = document.createElement("div");
+        body.className = "entry-body";
+
+        const titleEl = document.createElement("div");
+        titleEl.className = "entry-title";
+        titleEl.textContent = item.title || "(bez naslova)";
+
+        const metaLine = document.createElement("div");
+        metaLine.className = "entry-meta-line";
+        const type = item.type || "rad";
+        const dateStr = formatDate(item.created_at);
+        metaLine.textContent =
+          (item.artist_name || "Nepoznat autor") +
+          " • " +
+          type +
+          (dateStr ? " • " + dateStr : "");
+
+        const statusPill = document.createElement("div");
+        statusPill.className =
+          "entry-status-pill " + statusClass(item.status);
+        statusPill.textContent = statusLabel(item.status);
+
+        const actions = document.createElement("div");
+        actions.className = "entry-actions";
+
+        if (lowerStatus === "draft") {
+          const editLink = document.createElement("a");
+          editLink.className = "entry-btn small";
+          editLink.href = targetHref;
+          editLink.textContent = "Dovrši unos";
+          actions.appendChild(editLink);
+        } else {
+          const detailLink = document.createElement("a");
+          detailLink.className = "entry-btn small";
+          detailLink.href = targetHref;
+          detailLink.textContent = "Detalji";
+          actions.appendChild(detailLink);
+        }
+
+        body.appendChild(titleEl);
+        body.appendChild(metaLine);
+        body.appendChild(statusPill);
+        body.appendChild(actions);
+
+        card.appendChild(thumb);
+        card.appendChild(body);
+
+        entriesEl.appendChild(card);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadMyEntries();
+
+      fetch("navbar.html")
+        .then((res) => res.text())
+        .then((html) => {
+          document.getElementById("navbar-placeholder").innerHTML = html;
+          const current = "my-entries";
+          document
+            .querySelectorAll("#navbar .nav-item")
+            .forEach((item) => {
+              if (item.dataset.tab === current) item.classList.add("active");
+            });
+        });
+    });
+  </script>
+</body>
+</html>
