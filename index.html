@@ -34,8 +34,8 @@
         min-height: 100vh;
         display: flex;
         flex-direction: column;
-        justify-content: center; /* vertikalno centriranje sadržaja */
-        padding: 40px 16px 100px; /* dodatni vertikalni padding */
+        justify-content: center;
+        padding: 40px 16px 100px;
         box-sizing: border-box;
       }
 
@@ -67,11 +67,10 @@
       }
 
       .app-tagline {
-        font-size: 13px;
+        font-size: 1rem;
         opacity: 0.9;
         margin-top: 12px;
         text-align: center;
-        font-size: 1rem;
         padding-top: 10%;
         padding-bottom: 10%;
       }
@@ -129,14 +128,6 @@
         font-size: 11px;
         opacity: 0.82;
       }
-
-      #navbar-placeholder {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 50;
-      }
     </style>
   </head>
   <body class="bg-dark text-light">
@@ -172,8 +163,6 @@
       </div>
     </main>
 
-    <div id="navbar-placeholder"></div>
-
     <script>
       document.addEventListener("DOMContentLoaded", async () => {
         const form = document.getElementById("welcome-form");
@@ -182,6 +171,7 @@
         const user = await ensureAnonAuth();
         console.log("Anon user:", user?.id);
 
+        // ako već postoji nick -> preskoči
         const existing = await getNickname();
         if (existing) {
           input.value = existing;
@@ -202,14 +192,33 @@
             return;
           }
 
+          // spremi u localStorage
           setStoredUsername(candidate);
 
-          const finalName = await ensureNickname();
-          if (!finalName) {
+          // upsert u submitter_profiles za ovog usera (bez prompta)
+          try {
+            const { error } = await supabaseClient
+              .from("submitter_profiles")
+              .upsert(
+                {
+                  owner_id: user.id,
+                  nickname: candidate
+                },
+                { onConflict: "owner_id" }
+              );
+
+            if (error) {
+              console.error("save nickname error", error);
+              alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
+              return;
+            }
+          } catch (err) {
+            console.error("save nickname error", err);
             alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
             return;
           }
 
+          // označi da je prošao onboarding
           try {
             localStorage.setItem("street-ar-onboarded", "1");
           } catch (e) {
@@ -218,8 +227,6 @@
 
           window.location.href = "scan.html";
         });
-
-        
       });
     </script>
 
