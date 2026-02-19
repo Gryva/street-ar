@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Street AR – Detalji rada</title>
+  <title>Urban Scout – Detalji rada</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Shared auth helper (supabaseClient + ensureAnonAuth) -->
@@ -471,7 +471,7 @@
           try {
             await navigator.share({
               title: title,
-              text: "Pogledaj ovaj rad u Street AR galeriji.",
+              text: "Pogledaj ovaj rad u galeriji.",
               url: shareUrl,
             });
           } catch (err) {
