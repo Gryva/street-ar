@@ -20,6 +20,8 @@
     />
 
     <style>
+
+  
       body {
         font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
           sans-serif;
@@ -164,71 +166,61 @@
     </main>
 
     <script>
-      document.addEventListener("DOMContentLoaded", async () => {
-        const form = document.getElementById("welcome-form");
-        const input = document.getElementById("username");
+  document.addEventListener("DOMContentLoaded", async () => {
+    const form = document.getElementById("welcome-form");
+    const input = document.getElementById("username");
 
-        const user = await ensureAnonAuth();
-        console.log("Anon user:", user?.id);
+    // ako je već onboarded, odmah na scan
+    let onboarded = false;
+    try {
+      onboarded = localStorage.getItem("street-ar-onboarded") === "1";
+    } catch (e) {
+      console.error("read onboard flag error", e);
+    }
+    if (onboarded) {
+      window.location.href = "scan.html";
+      return;
+    }
 
-        // ako već postoji nick -> preskoči
-        const existing = await getNickname();
-        if (existing) {
-          input.value = existing;
-          try {
-            localStorage.setItem("street-ar-onboarded", "1");
-          } catch (e) {
-            console.error("onboard flag error", e);
-          }
-          window.location.href = "scan.html";
-          return;
-        }
+    // anon user – čisto da imamo owner_id za ostale pozive
+    const user = await ensureAnonAuth();
+    console.log("Anon user:", user?.id);
 
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const candidate = input.value.trim();
-          if (!candidate) {
-            input.focus();
-            return;
-          }
+    // ako već postoji nick (iz prošle sesije), preskoči index
+    const existing = await getNickname();
+    if (existing) {
+      input.value = existing;
+      try {
+        localStorage.setItem("street-ar-onboarded", "1");
+      } catch (e) {
+        console.error("onboard flag error", e);
+      }
+      window.location.href = "scan.html";
+      return;
+    }
 
-          // spremi u localStorage
-          setStoredUsername(candidate);
+    // prvi ulaz – korisnik ručno upisuje ime, spremamo samo u localStorage
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const candidate = input.value.trim();
+      if (!candidate) {
+        input.focus();
+        return;
+      }
 
-          // upsert u submitter_profiles za ovog usera (bez prompta)
-          try {
-            const { error } = await supabaseClient
-              .from("submitter_profiles")
-              .upsert(
-                {
-                  owner_id: user.id,
-                  nickname: candidate
-                },
-                { onConflict: "owner_id" }
-              );
+      setStoredUsername(candidate);
 
-            if (error) {
-              console.error("save nickname error", error);
-              alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
-              return;
-            }
-          } catch (err) {
-            console.error("save nickname error", err);
-            alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
-            return;
-          }
+      try {
+        localStorage.setItem("street-ar-onboarded", "1");
+      } catch (e) {
+        console.error("onboard flag error", e);
+      }
 
-          // označi da je prošao onboarding
-          try {
-            localStorage.setItem("street-ar-onboarded", "1");
-          } catch (e) {
-            console.error("onboard flag error", e);
-          }
+      window.location.href = "scan.html";
+    });
+  });
+</script>
 
-          window.location.href = "scan.html";
-        });
-      });
-    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
