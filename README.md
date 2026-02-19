@@ -26,7 +26,7 @@
 <h2>Demo</h2>
 <p>
   GitHub Pages: 
-  <code>https://&lt;tvogithub&gt;.github.io/urban-scout/</code>
+  <code>https://gryva.github.io/urban-scout/index.html</code>
 </p>
 
 <h2>Glavne stranice</h2>
