@@ -253,7 +253,7 @@
 
   <div id="post-capture-actions">
     <div id="post-capture-text">
-      Slika i lokacija su spremljeni kao draft. Možeš odmah unijeti informacije ili dovršiti kasnije.
+      Slika se sprema u pozadini. Možeš odmah nastaviti s unosom ili spremiti samo kao draft.
     </div>
     <button id="btn-edit-now">Nastavi na unos informacija</button>
     <button id="btn-save-draft-only">Spremi samo kao draft</button>
@@ -331,6 +331,10 @@
     let fallbackTimer = null;
     let lastDraftId = null;
     let currentArtworkId = null;
+
+    // signaliziramo da je obrada u tijeku, ali draftId još nije poznat
+    let draftPending = false;
+    let draftReady = false;
 
     function updateDimmer() {
       if (anyVisible) dimmer.classList.add("active");
@@ -477,18 +481,18 @@
         const titleText = document.createElement("a-text");
         titleText.setAttribute("color", "#ffd700");
         titleText.setAttribute("align", "center");
-        titleText.setAttribute("width", "2.2");
+        titleText.setAttribute("width", "1.7");   // uže, da ne izlazi
+        titleText.setAttribute("wrap-count", "26");
         titleText.setAttribute("position", "0 0.11 0.02");
-        titleText.setAttribute("wrap-count", "32");
         titleText.setAttribute("value", title);
         topPanel.appendChild(titleText);
 
         const metaText = document.createElement("a-text");
         metaText.setAttribute("color", "#ffffff");
         metaText.setAttribute("align", "center");
-        metaText.setAttribute("width", "2.2");
+        metaText.setAttribute("width", "1.7");
+        metaText.setAttribute("wrap-count", "32");
         metaText.setAttribute("position", "0 -0.07 0.02");
-        metaText.setAttribute("wrap-count", "38");
         metaText.setAttribute("value", `Autor: ${artist} • Tip: ${type}`);
         topPanel.appendChild(metaText);
 
@@ -518,9 +522,9 @@
           const descText = document.createElement("a-text");
           descText.setAttribute("color", "#dddddd");
           descText.setAttribute("align", "center");
-          descText.setAttribute("width", "2.3");
+          descText.setAttribute("width", "1.8");
+          descText.setAttribute("wrap-count", "40");
           descText.setAttribute("position", "0 0 0.02");
-          descText.setAttribute("wrap-count", "44");
           descText.setAttribute("value", desc);
           bottomPanel.appendChild(descText);
 
@@ -636,13 +640,20 @@
         return;
       }
 
-      statusEl.textContent = "Obrađujem sliku...";
+      // odmah prikaži opcije, obrada ide u pozadini
+      draftPending = true;
+      draftReady = false;
+      lastDraftId = null;
+      postCapturePanel.style.display = "block";
+      if (noMarkerActions) noMarkerActions.style.display = "none";
+      statusEl.textContent = "Obrađujem sliku u pozadini...";
 
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = reader.result;
         if (!dataUrl) {
           statusEl.textContent = "Dogodila se greška pri čitanju slike.";
+          draftPending = false;
           return;
         }
 
@@ -655,25 +666,28 @@
 
           const draftId = await createDraftSubmissionFromImageDataUrl(dataUrl);
           lastDraftId = draftId;
+          draftReady = true;
+          draftPending = false;
 
-          statusEl.textContent = "Draft spremljen. Odaberi što želiš dalje.";
-          if (noMarkerActions) noMarkerActions.style.display = "none";
-          postCapturePanel.style.display = "block";
+          statusEl.textContent = "Draft spremljen. Možeš nastaviti s unosom ili ostaviti kao draft.";
         } catch (e) {
           console.error(e);
+          draftPending = false;
+          draftReady = false;
           statusEl.textContent =
             "Greška pri spremanju drafta: " + (e.message || e.toString());
         }
       };
       reader.onerror = () => {
+        draftPending = false;
         statusEl.textContent = "Dogodila se greška pri čitanju slike.";
       };
       reader.readAsDataURL(file);
     });
 
     btnEditNow.addEventListener("click", () => {
-      if (!lastDraftId) {
-        window.location.href = "submit.html";
+      if (!draftReady || !lastDraftId) {
+        alert("Još spremamo tvoj draft, pričekaj trenutak…");
         return;
       }
       window.location.href =
@@ -684,8 +698,13 @@
 
     btnSaveDraftOnly.addEventListener("click", () => {
       postCapturePanel.style.display = "none";
-      statusEl.textContent =
-        "Draft je spremljen. Možeš ga kasnije dovršiti u svojim unosima.";
+      if (draftPending && !draftReady) {
+        statusEl.textContent =
+          "Spremamo tvoj draft u pozadini. Možeš nastaviti skenirati.";
+      } else {
+        statusEl.textContent =
+          "Draft je spremljen. Možeš ga kasnije dovršiti u svojim unosima.";
+      }
     });
 
     btnOpenDetail.addEventListener("click", () => {
@@ -712,6 +731,17 @@
         await ensureAnonAuth();
       } catch (e) {
         console.error("ensureAnonAuth error", e);
+      }
+
+      // restart MindAR enginea pri svakom ulasku
+      const arSystem = scene.systems["mindar-image-system"];
+      if (arSystem && arSystem.start) {
+        try {
+          arSystem.stop && arSystem.stop();
+          await arSystem.start();
+        } catch (e) {
+          console.error("MindAR restart error", e);
+        }
       }
 
       scheduleFallback();
