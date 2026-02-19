@@ -162,48 +162,48 @@
 
     /* Search bar iznad mape – pomaknut da ne dira zoom kontrole */
     #search-bar {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 300;
-  width: 100%;
-  max-width: 480px;      /* malo smanji max širinu */
-  padding: 0 12px;       /* unutarnji padding umjesto calc */
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-.search-wrapper {
-  position: relative;
-  flex: 1;
-  pointer-events: auto;
-}
-.search-wrapper::before {
-  content: "🔍";
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 13px;
-  opacity: 0.75;
-  pointer-events: none;
-}
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      width: 100%;
+      max-width: 480px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      pointer-events: none;
+    }
+    .search-wrapper {
+      position: relative;
+      flex: 1;
+      pointer-events: auto;
+    }
+    .search-wrapper::before {
+      content: "🔍";
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      opacity: 0.75;
+      pointer-events: none;
+    }
 
     #search-input {
-  width: 100%;
-  padding: 9px 14px 9px 30px;
-  border-radius: 999px;
-  border: 1px solid #333;
-  background: rgba(0, 0, 0, 0.9);
-  color: #fff;
-  font-family: "Roboto Condensed", system-ui, sans-serif;
-  font-size: 14px;
-  outline: none;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
-  box-sizing: border-box;
-}
+      width: 100%;
+      padding: 9px 14px 9px 30px;
+      border-radius: 999px;
+      border: 1px solid #333;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      font-family: "Roboto Condensed", system-ui, sans-serif;
+      font-size: 14px;
+      outline: none;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+      box-sizing: border-box;
+    }
     #search-input::placeholder {
       color: #848484;
     }
@@ -225,16 +225,15 @@
   <div id="map-container">
     <!-- search bar -->
     <div id="search-bar">
-  <div class="search-wrapper">
-    <input
-      id="search-input"
-      type="text"
-      placeholder="Traži po autoru ili imenu rada…"
-    />
-  </div>
-  <button id="search-button">Traži</button>
-</div>
-
+      <div class="search-wrapper">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Traži po autoru ili imenu rada…"
+        />
+      </div>
+      <button id="search-button">Traži</button>
+    </div>
 
     <div id="map"></div>
   </div>
@@ -267,29 +266,30 @@
           });
       });
 
-    // Leaflet mapa
-
+    // Onboarding guard
     document.addEventListener("DOMContentLoaded", async () => {
-  let onboarded = false;
-  try {
-    onboarded = localStorage.getItem("street-ar-onboarded") === "1";
-  } catch (e) {
-    console.error("read onboard flag error", e);
-  }
+      let onboarded = false;
+      try {
+        onboarded = localStorage.getItem("street-ar-onboarded") === "1";
+      } catch (e) {
+        console.error("read onboard flag error", e);
+      }
 
-  if (!onboarded) {
-    window.location.href = "index.html";
-    return;
-  }
+      if (!onboarded) {
+        window.location.href = "index.html";
+        return;
+      }
 
-  try {
-    await ensureAnonAuth();
-  } catch (e) {
-    console.error("ensureAnonAuth error", e);
-  }
+      try {
+        await ensureAnonAuth();
+      } catch (e) {
+        console.error("ensureAnonAuth error", e);
+      }
+    });
 
-  // ... ostatak: scheduleFallback(), loadMarkersFromSupabase(), navbar ...
-});
+    // Čitanje ID-a koji treba highlightati iz query stringa (?id=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightedId = urlParams.get("id"); // string ili null
 
     const map = L.map("map", {
       zoomControl: false,
@@ -381,10 +381,23 @@
         markerById[item.id] = marker;
       });
 
-      if (markersLayer.getLayers().length > 0) {
-        map.fitBounds(markersLayer.getBounds(), {
-          padding: [40, 40]
-        });
+      // Ako je pozvan s detaila i imamo ID – fokusiraj samo taj marker
+      if (highlightedId && markerById[highlightedId]) {
+        const m = markerById[highlightedId];
+        const ll = m.getLatLng();
+        map.setView(ll, 17, { animate: true });
+        m.openPopup();
+
+        // Opcionalno: sakrij ostale markere da baš izgleda kao "samo taj"
+        // markersLayer.clearLayers();
+        // markersLayer.addLayer(m);
+      } else {
+        // default: fit na sve
+        if (markersLayer.getLayers().length > 0) {
+          map.fitBounds(markersLayer.getBounds(), {
+            padding: [40, 40]
+          });
+        }
       }
     }
 
