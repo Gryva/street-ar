@@ -24,20 +24,19 @@
         font-family: "Roboto Condensed", system-ui, -apple-system, "Segoe UI",
           sans-serif;
         background: radial-gradient(circle at top, #15181f, #000 70%);
-        color: #fff;
+        color: #f5f5f5;
         min-height: 100vh;
-        padding-bottom: 80px; /* prostor za navbar */
+        padding-bottom: 80px;
+        overflow: hidden; /* disable scroll */
       }
 
-      .brand-title {
-        font-size: 28px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-      }
-
-      .brand-subtitle {
-        font-size: 13px;
-        opacity: 0.8;
+      main {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* vertikalno centriranje sadržaja */
+        padding: 40px 16px 100px; /* dodatni vertikalni padding */
+        box-sizing: border-box;
       }
 
       .card-welcome {
@@ -52,23 +51,52 @@
         box-shadow: 0 0 22px rgba(0, 0, 0, 0.8);
       }
 
+      .logo-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 24px;
+        margin-top: 8px;
+        text-wrap: balance;
+      }
+
+      .logo {
+        width: 330px;
+        height: auto;
+        display: block;
+      }
+
+      .app-tagline {
+        font-size: 13px;
+        opacity: 0.9;
+        margin-top: 12px;
+        text-align: center;
+        font-size: 1rem;
+        padding-top: 10%;
+        padding-bottom: 10%;
+      }
+
       .form-label {
         font-size: 12px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: #bbbbbb;
+        color: #dddddd;
       }
 
       .form-control {
         border-radius: 999px;
-        background: #050505;
-        border: 1px solid #333;
-        color: #fff;
+        background: #070707;
+        border: 1px solid #444;
+        color: #ffffff;
         font-size: 14px;
       }
 
+      .form-control::placeholder {
+        color: #777;
+      }
+
       .form-control:focus {
-        background: #080808;
+        background: #0b0b0b;
         border-color: #ffd700;
         box-shadow: 0 0 0 0.15rem rgba(255, 215, 0, 0.35);
         color: #fff;
@@ -99,24 +127,7 @@
 
       .hint {
         font-size: 11px;
-        opacity: 0.78;
-      }
-
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        opacity: 0.9;
-      }
-
-      .pill span {
-        font-size: 14px;
+        opacity: 0.82;
       }
 
       #navbar-placeholder {
@@ -129,45 +140,33 @@
     </style>
   </head>
   <body class="bg-dark text-light">
-    <main class="container py-4">
-      <div class="d-flex flex-column align-items-start mb-4">
-        <div class="pill mb-2">
-          <span>👋</span> dobrodošli u Street AR
-        </div>
-        <h1 class="brand-title mb-1">Street AR</h1>
-        <div class="brand-subtitle">
-          web aplikacija za unos i otkrivanje uličnih vizuala
+    <main class="container">
+      <div class="logo-wrapper">
+        <img src="logo.svg" alt="Logo" class="logo" />
+        <div class="app-tagline">
+          Street AR je web aplikacija za otkrivanje i popis uličnih vizuala kroz AR skeniranje.
         </div>
       </div>
 
       <div class="card card-welcome p-4">
-        <h2 class="h5 mb-3">Tvoj potpis u galeriji</h2>
-        <p class="mb-3" style="font-size: 13px; opacity: 0.85;">
-          Prije nego kreneš skenirati ili dodavati radove, upiši nadimak ili
-          ime pod kojim želiš biti potpisan uz svoje unose. To ime ćemo
-          koristiti za sve buduće prijave.
-        </p>
-
         <form id="welcome-form" class="mt-2">
           <div class="mb-3">
-            <label for="username" class="form-label">Tvoje korisničko ime</label>
+            <label for="username" class="form-label">Korisničko ime</label>
             <input
               type="text"
               id="username"
               class="form-control"
-              placeholder="npr. lunar_123"
+              placeholder="Upiši korisničko ime"
               autocomplete="off"
               required
             />
             <div class="hint mt-1">
-              Koristi nadimak ili ime koje želiš da se pojavljuje uz radove.
-              Možeš ga kasnije promijeniti u postavkama preglednika
-              (localStorage).
+              Ovo ime prikazujemo uz radove koje pošalješ.
             </div>
           </div>
 
           <button type="submit" class="btn btn-primary w-100 mt-2">
-            Spremi i nastavi u aplikaciju
+            Nastavi
           </button>
         </form>
       </div>
@@ -180,20 +179,21 @@
         const form = document.getElementById("welcome-form");
         const input = document.getElementById("username");
 
-        // 1) osiguraj anon auth
         const user = await ensureAnonAuth();
         console.log("Anon user:", user?.id);
 
-        // 2) ako već ima nickname (localStorage ili submitter_profiles),
-        // preskoči ekran i idi na aplikaciju
-        const existing = await ensureNickname();
+        const existing = await getNickname();
         if (existing) {
           input.value = existing;
+          try {
+            localStorage.setItem("street-ar-onboarded", "1");
+          } catch (e) {
+            console.error("onboard flag error", e);
+          }
           window.location.href = "scan.html";
           return;
         }
 
-        // 3) ako nema profila -> koristimo formu za prvi odabir nadimka
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
           const candidate = input.value.trim();
@@ -202,30 +202,24 @@
             return;
           }
 
-          // ovdje više ne provjeravamo zauzetost globalno – svaki user ima svoj profil
-          const { error: insertError } = await supabaseClient
-            .from("submitter_profiles")
-            .insert({
-              owner_id: user.id,
-              nickname: candidate
-            });
+          setStoredUsername(candidate);
 
-          if (insertError) {
-            console.error("insert nickname error", insertError);
+          const finalName = await ensureNickname();
+          if (!finalName) {
             alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
             return;
           }
 
-          setStoredUsername(candidate);
+          try {
+            localStorage.setItem("street-ar-onboarded", "1");
+          } catch (e) {
+            console.error("onboard flag error", e);
+          }
+
           window.location.href = "scan.html";
         });
 
-        // Navbar
-        fetch("navbar.html")
-          .then((res) => res.text())
-          .then((html) => {
-            document.getElementById("navbar-placeholder").innerHTML = html;
-          });
+        
       });
     </script>
 

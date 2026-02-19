@@ -6,11 +6,11 @@
   <title>Street AR – Skeniraj</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mindar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname) -->
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname + getNickname) -->
   <script src="auth.js"></script>
 
   <link
@@ -384,6 +384,21 @@
       });
     }
 
+    function normalizeForAR(str) {
+      if (!str) return "";
+      return str
+        .replace(/č/g, "c")
+        .replace(/ć/g, "c")
+        .replace(/š/g, "s")
+        .replace(/ž/g, "z")
+        .replace(/đ/g, "d")
+        .replace(/Č/g, "C")
+        .replace(/Ć/g, "C")
+        .replace(/Š/g, "S")
+        .replace(/Ž/g, "Z")
+        .replace(/Đ/g, "D");
+    }
+
     async function loadMarkersFromSupabase() {
       statusEl.textContent = "Učitavam AR radove...";
 
@@ -421,7 +436,6 @@
         // spremi ID rada za kasnije
         marker.dataset.artworkId = item.id;
 
-        // okvir
         const frame = document.createElement("a-entity");
         frame.setAttribute("position", "0 0.15 0");
         frame.innerHTML = `
@@ -432,31 +446,33 @@
         `;
         marker.appendChild(frame);
 
-        const title = item.title || "(bez naslova)";
-        const artist = item.artist_name || "Nepoznat autor";
-        const type = item.type || "rad";
-        const desc = item.description || "";
+        const title = normalizeForAR(item.title || "(bez naslova)");
+        const artist = normalizeForAR(item.artist_name || "Nepoznat autor");
+        const type = normalizeForAR(item.type || "rad");
+        const desc = normalizeForAR(item.description || "");
 
         const textBlock = document.createElement("a-entity");
         textBlock.setAttribute("position", "0 0.15 0");
 
-        // gornji panel (naslov + meta)
+        // GORNJI PANEL (naslov + meta)
         const topPanel = document.createElement("a-entity");
         topPanel.setAttribute("position", "0 0.9 0");
+
+        const topOutline = document.createElement("a-plane");
+        topOutline.setAttribute("width", "1.9");
+        topOutline.setAttribute("height", "0.5");
+        topOutline.setAttribute("color", "#ffd700");
+        topOutline.setAttribute("opacity", "0.9");
+        topOutline.setAttribute("position", "0 0 -0.02");
+        topPanel.appendChild(topOutline);
 
         const topBg = document.createElement("a-plane");
         topBg.setAttribute("width", "1.8");
         topBg.setAttribute("height", "0.42");
         topBg.setAttribute("color", "#000000");
-        topBg.setAttribute("opacity", "0.88");
+        topBg.setAttribute("opacity", "0.92");
+        topBg.setAttribute("position", "0 0 -0.01");
         topPanel.appendChild(topBg);
-
-        const topBorder = document.createElement("a-plane");
-        topBorder.setAttribute("width", "1.86");
-        topBorder.setAttribute("height", "0.46");
-        topBorder.setAttribute("color", "#ffd700");
-        topBorder.setAttribute("opacity", "0.12");
-        topPanel.appendChild(topBorder);
 
         const titleText = document.createElement("a-text");
         titleText.setAttribute("color", "#ffd700");
@@ -473,24 +489,30 @@
         metaText.setAttribute("width", "2.2");
         metaText.setAttribute("position", "0 -0.07 0.02");
         metaText.setAttribute("wrap-count", "38");
-        metaText.setAttribute(
-          "value",
-          `Autor: ${artist} • Tip: ${type}`
-        );
+        metaText.setAttribute("value", `Autor: ${artist} • Tip: ${type}`);
         topPanel.appendChild(metaText);
 
         textBlock.appendChild(topPanel);
 
-        // opis (ako postoji)
+        // DONJI PANEL (opis)
         if (desc) {
           const bottomPanel = document.createElement("a-entity");
           bottomPanel.setAttribute("position", "0 -1.0 0");
+
+          const bottomOutline = document.createElement("a-plane");
+          bottomOutline.setAttribute("width", "2.0");
+          bottomOutline.setAttribute("height", "0.8");
+          bottomOutline.setAttribute("color", "#ffd700");
+          bottomOutline.setAttribute("opacity", "0.9");
+          bottomOutline.setAttribute("position", "0 0 -0.02");
+          bottomPanel.appendChild(bottomOutline);
 
           const bottomBg = document.createElement("a-plane");
           bottomBg.setAttribute("width", "1.9");
           bottomBg.setAttribute("height", "0.7");
           bottomBg.setAttribute("color", "#000000");
-          bottomBg.setAttribute("opacity", "0.88");
+          bottomBg.setAttribute("opacity", "0.92");
+          bottomBg.setAttribute("position", "0 0 -0.01");
           bottomPanel.appendChild(bottomBg);
 
           const descText = document.createElement("a-text");
@@ -553,6 +575,7 @@
       });
     }
 
+    // DRAFT IZ SCANA: nick ne mora postojati, samo ga uzmi ako ga već imamo
     async function createDraftSubmissionFromImageDataUrl(dataUrl) {
       statusEl.textContent = "Spremam draft (slika + lokacija)...";
 
@@ -567,9 +590,13 @@
 
       const user = await ensureAnonAuth();
       const ownerId = user?.id || null;
-      const submitter = await ensureNickname();
-      if (!submitter) {
-        throw new Error("Nije postavljeno korisničko ime.");
+
+      // dohvat postojećeg nadimka bez prompta
+      let submitter = null;
+      try {
+        submitter = await getNickname();
+      } catch (e) {
+        console.warn("getNickname error (ignoring for draft):", e);
       }
 
       const { data, error } = await supabaseClient
@@ -581,7 +608,7 @@
           description: null,
           latitude,
           longitude,
-          submitted_by: submitter,
+          submitted_by: submitter || null,
           owner_id: ownerId,
           image_path: imagePath,
           status: "draft"
@@ -668,6 +695,19 @@
     });
 
     document.addEventListener("DOMContentLoaded", async () => {
+      // ako user još nije prošao index (onboarding), pošalji ga tamo
+      let onboarded = false;
+      try {
+        onboarded = localStorage.getItem("street-ar-onboarded") === "1";
+      } catch (e) {
+        console.error("read onboard flag error", e);
+      }
+
+      if (!onboarded) {
+        window.location.href = "index.html";
+        return;
+      }
+
       try {
         await ensureAnonAuth();
       } catch (e) {

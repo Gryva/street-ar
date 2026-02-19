@@ -7,7 +7,7 @@
 
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname) -->
+  <!-- Shared auth helper (supabaseClient + ensureAnonAuth + ensureNickname + getNickname) -->
   <script src="auth.js"></script>
 
   <!-- Roboto Condensed -->
@@ -261,7 +261,8 @@
         return;
       }
 
-      const nickname = await ensureNickname();
+      // Samo pročitamo nickname; ako ga nema, ne forsiramo prompt ovdje
+      const nickname = await getNickname();
       if (nickname) {
         userLabelNameEl.textContent = nickname;
       } else {
@@ -270,15 +271,16 @@
 
       statusEl.textContent = "Učitavam tvoje unose...";
 
+      // Filtriranje po owner_id je dovoljno da različiti useri s istim imenom
+      // NE vide tuđe radove.
+      // Ako želiš dodatno, možeš ostaviti eq("submitted_by", nickname) ali onda
+      // entries bez nicka neće biti prikazani. Po zahtjevu: id je izvor istine.
       const { data, error } = await supabaseClient
-  .from("artwork_submissions")
-  .select("*")
-  .eq("owner_id", user.id)
-  .not("owner_id", "is", null)
-  .eq("submitted_by", nickname)
-  .order("created_at", { ascending: false });
-
- 
+        .from("artwork_submissions")
+        .select("*")
+        .eq("owner_id", user.id)
+        .not("owner_id", "is", null)
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error(error);

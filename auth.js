@@ -46,18 +46,15 @@ function setStoredUsername(name) {
   }
 }
 
-// Glavni helper: osiguraj da user ima neki nickname
-async function ensureNickname() {
+// samo pročitaj nickname (ne pita usera)
+async function getNickname() {
   // 1) iz localStorage
   let name = getStoredUsername();
   if (name) return name;
 
   // 2) iz submitter_profiles za ovog usera
   const user = await ensureAnonAuth();
-  if (!user) {
-    alert("Greška pri prijavi korisnika.");
-    return null;
-  }
+  if (!user) return null;
 
   const { data: profile, error } = await supabaseClient
     .from("submitter_profiles")
@@ -70,7 +67,20 @@ async function ensureNickname() {
     return profile.nickname;
   }
 
-  // 3) nema profila -> pitaj usera i SPREMI (bez globalne provjere duplikata)
+  return null;
+}
+
+// Glavni helper: osiguraj da user ima neki nickname (ako nema, pitaj)
+async function ensureNickname() {
+  const existing = await getNickname();
+  if (existing) return existing;
+
+  const user = await ensureAnonAuth();
+  if (!user) {
+    alert("Greška pri prijavi korisnika.");
+    return null;
+  }
+
   while (true) {
     const input = prompt(
       "Kako želiš da te potpisujemo uz tvoje radove? (nadimak ili ime)",
@@ -84,15 +94,19 @@ async function ensureNickname() {
     const candidate = input.trim();
     if (!candidate) continue;
 
-    const { error: insertError } = await supabaseClient
+    // NEMA globalne provjere duplikata: svaki user ima svoj red po owner_id
+    const { error: upsertError } = await supabaseClient
       .from("submitter_profiles")
-      .insert({
-        owner_id: user.id,
-        nickname: candidate
-      });
+      .upsert(
+        {
+          owner_id: user.id,
+          nickname: candidate
+        },
+        { onConflict: "owner_id" } // ako već postoji red za ovog usera, samo update
+      );
 
-    if (insertError) {
-      console.error("insert nickname error", insertError);
+    if (upsertError) {
+      console.error("save nickname error", upsertError);
       alert("Ne mogu spremiti korisničko ime. Pokušaj ponovo.");
       continue;
     }
@@ -100,4 +114,46 @@ async function ensureNickname() {
     setStoredUsername(candidate);
     return candidate;
   }
+}
+
+// Ručno promijeni nadimak (pozivaš iz UI-a – nije obavezno)
+async function changeNickname() {
+  const user = await ensureAnonAuth();
+  if (!user) {
+    alert("Greška pri prijavi korisnika.");
+    return null;
+  }
+
+  const current = (await getNickname()) || "";
+
+  const input = prompt(
+    "Upiši novo korisničko ime / nadimak:",
+    current
+  );
+  if (input === null) return null;
+
+  const candidate = input.trim();
+  if (!candidate) {
+    alert("Korisničko ime ne može biti prazno.");
+    return null;
+  }
+
+  const { error } = await supabaseClient
+    .from("submitter_profiles")
+    .upsert(
+      {
+        owner_id: user.id,
+        nickname: candidate
+      },
+      { onConflict: "owner_id" }
+    );
+
+  if (error) {
+    console.error("changeNickname error", error);
+    alert("Ne mogu spremiti novo korisničko ime. Pokušaj ponovo.");
+    return null;
+  }
+
+  setStoredUsername(candidate);
+  return candidate;
 }
